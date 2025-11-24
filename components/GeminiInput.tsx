@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Loader2, Image as ImageIcon, X, Upload } from 'lucide-react';
-import { generateDiagramFromPrompt } from '../services/geminiService';
+import { generateDiagramFromPrompt } from '../services/aiService';
 import { DiagramElement } from '../types';
 
 interface GeminiInputProps {
@@ -57,7 +57,9 @@ export const GeminiInput: React.FC<GeminiInputProps> = ({ onElementsGenerated })
       // setPrompt('');
       // setImage(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate diagram');
+      console.error('[GeminiInput] 生成失败:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate diagram';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

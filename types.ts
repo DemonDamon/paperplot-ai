@@ -3,7 +3,8 @@ export enum ToolType {
   RECTANGLE = 'RECTANGLE',
   CIRCLE = 'CIRCLE',
   TEXT = 'TEXT',
-  ARROW = 'ARROW'
+  ARROW = 'ARROW',
+  GROUP = 'GROUP'  // 分组/子图
 }
 
 export enum LineType {
@@ -50,6 +51,22 @@ export interface DiagramElement {
   lineStyle?: LineStyle;
   markerStart?: boolean;
   markerEnd?: boolean;
+  
+  // Group/Subgraph
+  groupId?: string;  // 所属分组ID
+}
+
+export interface DiagramGroup {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  strokeColor?: string;
+  fillColor?: string;
+  strokeWidth?: number;
+  strokeDasharray?: string;  // 虚线样式
 }
 
 export interface GenerationResponse {

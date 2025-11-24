@@ -4,16 +4,44 @@ import { ArrowRight, Activity, CornerDownRight, Minus, MoreHorizontal, X } from 
 
 interface PropertiesPanelProps {
   element: DiagramElement | null;
+  elements: DiagramElement[];  // 所有元素，用于选择连接目标
   updateElement: (updates: Partial<DiagramElement>, saveHistory?: boolean) => void;
   deleteElement: () => void;
   onHistorySave: () => void;
+  onClose?: () => void;
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, updateElement, deleteElement, onHistorySave }) => {
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, elements, updateElement, deleteElement, onHistorySave, onClose }) => {
   
   // Helper to update with history trigger
   const handleChange = (updates: Partial<DiagramElement>) => {
     updateElement(updates, true);
+  };
+
+  // 获取可连接的元素（排除箭头和当前元素）
+  const connectableElements = elements.filter(el => 
+    el.type !== ToolType.ARROW && el.id !== element?.id
+  );
+
+  // 获取所有现有的分组ID和标签
+  const existingGroups = React.useMemo(() => {
+    const groupMap = new Map<string, string>();
+    elements.forEach(el => {
+      if (el.groupId && el.type !== ToolType.ARROW) {
+        if (!groupMap.has(el.groupId)) {
+          // 使用第一个元素的文本作为分组标签
+          const firstElement = elements.find(e => e.groupId === el.groupId && e.type !== ToolType.ARROW);
+          groupMap.set(el.groupId, firstElement?.text || `Group ${el.groupId.substring(0, 8)}`);
+        }
+      }
+    });
+    return Array.from(groupMap.entries()).map(([id, label]) => ({ id, label }));
+  }, [elements]);
+
+  // 创建新分组
+  const handleCreateGroup = () => {
+    const newGroupId = `group_${Date.now()}`;
+    handleChange({ groupId: newGroupId });
   };
 
   // If no element is selected, do not render anything (remove empty state)
@@ -22,12 +50,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, updat
   }
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 p-5 flex flex-col gap-6 shadow-sm h-full overflow-y-auto z-10">
+    <div className="absolute left-16 top-0 w-72 bg-white border-r border-gray-200 p-5 flex flex-col gap-6 shadow-lg h-full overflow-y-auto z-20">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-800">Properties</h3>
-        <button onClick={deleteElement} className="text-red-500 hover:text-red-600 text-sm font-medium bg-red-50 px-2 py-1 rounded">
-          Delete
-        </button>
+        <div className="flex gap-2">
+          {onClose && (
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
+              title="关闭"
+            >
+              <X size={16} />
+            </button>
+          )}
+          <button onClick={deleteElement} className="text-red-500 hover:text-red-600 text-sm font-medium bg-red-50 px-2 py-1 rounded">
+            Delete
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -47,6 +86,100 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, updat
         {/* Line Specific Properties */}
         {element.type === ToolType.ARROW && (
           <>
+            {/* Connection Editor */}
+            <div className="border-t border-gray-100 pt-4 flex flex-col gap-3">
+              <label className="text-xs font-bold text-gray-700">连接设置</label>
+              
+              {/* From Connection */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">起点 (From)</label>
+                <select
+                  value={element.fromId || ''}
+                  onChange={(e) => {
+                    const newFromId = e.target.value || undefined;
+                    const updates: Partial<DiagramElement> = { fromId: newFromId };
+                    // 只有当 both fromId 和 toId 都存在时，才清除手动坐标
+                    if (newFromId && element.toId) {
+                      updates.endX = undefined;
+                      updates.endY = undefined;
+                    }
+                    handleChange(updates);
+                  }}
+                  className="border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="">无连接（手动坐标）</option>
+                  {connectableElements.map(el => (
+                    <option key={el.id} value={el.id}>
+                      {el.text || el.id.substring(0, 8)}
+                    </option>
+                  ))}
+                </select>
+                {element.fromId && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    当前: {elements.find(e => e.id === element.fromId)?.text || element.fromId}
+                  </div>
+                )}
+              </div>
+
+              {/* To Connection */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">终点 (To)</label>
+                <select
+                  value={element.toId || ''}
+                  onChange={(e) => {
+                    const newToId = e.target.value || undefined;
+                    const updates: Partial<DiagramElement> = { toId: newToId };
+                    // 只有当 both fromId 和 toId 都存在时，才清除手动坐标
+                    if (newToId && element.fromId) {
+                      updates.endX = undefined;
+                      updates.endY = undefined;
+                    }
+                    handleChange(updates);
+                  }}
+                  className="border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="">无连接（手动坐标）</option>
+                  {connectableElements.map(el => (
+                    <option key={el.id} value={el.id}>
+                      {el.text || el.id.substring(0, 8)}
+                    </option>
+                  ))}
+                </select>
+                {element.toId && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    当前: {elements.find(e => e.id === element.toId)?.text || element.toId}
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Coordinates (only shown if not connected) */}
+              {(!element.fromId || !element.toId) && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
+                  <label className="text-xs font-medium text-gray-500">手动坐标（未连接时使用）</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-400">终点 X</label>
+                      <input
+                        type="number"
+                        value={Math.round(element.endX || element.x)}
+                        onChange={(e) => handleChange({ endX: parseFloat(e.target.value) || 0 })}
+                        className="w-full border rounded p-1 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400">终点 Y</label>
+                      <input
+                        type="number"
+                        value={Math.round(element.endY || element.y)}
+                        onChange={(e) => handleChange({ endY: parseFloat(e.target.value) || 0 })}
+                        className="w-full border rounded p-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="border-t border-gray-100 pt-4 flex flex-col gap-3">
               <label className="text-xs font-bold text-gray-700">Connection Style</label>
               
@@ -199,6 +332,50 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, updat
                     />
                 </div>
              </div>
+        )}
+
+        {/* Group Assignment (for non-arrow elements) */}
+        {element.type !== ToolType.ARROW && (
+          <div className="border-t border-gray-100 pt-4 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-gray-700">分组</label>
+              <button
+                onClick={handleCreateGroup}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                新建分组
+              </button>
+            </div>
+            <select
+              value={element.groupId || ''}
+              onChange={(e) => {
+                const newGroupId = e.target.value || undefined;
+                handleChange({ groupId: newGroupId });
+              }}
+              className="border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">无分组</option>
+              {existingGroups.map(group => (
+                <option key={group.id} value={group.id}>
+                  {group.label}
+                </option>
+              ))}
+            </select>
+            {element.groupId && (
+              <div className="flex items-center justify-between mt-1">
+                <div className="text-xs text-gray-400">
+                  当前分组: {existingGroups.find(g => g.id === element.groupId)?.label || element.groupId}
+                </div>
+                <button
+                  onClick={() => handleChange({ groupId: undefined })}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium"
+                  title="从分组中移除"
+                >
+                  移除
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

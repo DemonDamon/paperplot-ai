@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [elements, setElements] = useState<DiagramElement[]>([]);
   const [selectedTool, setSelectedTool] = useState<ToolType>(ToolType.SELECT);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
@@ -72,9 +73,17 @@ const App: React.FC = () => {
     setFuture(newFuture);
   }, [elements, future]);
 
+  const deleteSelectedElement = useCallback(() => {
+    if (!selectedElementId) return;
+    saveToHistory();
+    setElements(prev => prev.filter(el => el.id !== selectedElementId));
+    setSelectedElementId(null);
+  }, [selectedElementId, saveToHistory]);
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo/Redo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -82,11 +91,24 @@ const App: React.FC = () => {
         } else {
           handleUndo();
         }
+        return;
+      }
+      
+      // Delete selected element (Backspace or Delete)
+      if ((e.key === 'Backspace' || e.key === 'Delete') && selectedElementId) {
+        // Don't delete if user is typing in an input/textarea
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+        
+        e.preventDefault();
+        deleteSelectedElement();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, selectedElementId, deleteSelectedElement]);
 
 
   const updateSelectedElement = (updates: Partial<DiagramElement>, saveHistory: boolean = true) => {
@@ -99,14 +121,13 @@ const App: React.FC = () => {
     setElements(prev => prev.map(el =>
       el.id === selectedElementId ? { ...el, ...updates } : el
     ));
+    
+    // Clear group selection if element is removed from group
+    if (updates.groupId === undefined && selectedGroupId) {
+      setSelectedGroupId(null);
+    }
   };
 
-  const deleteSelectedElement = () => {
-    if (!selectedElementId) return;
-    saveToHistory();
-    setElements(prev => prev.filter(el => el.id !== selectedElementId));
-    setSelectedElementId(null);
-  };
 
   const handleClearCanvas = () => {
     if (confirmClear) {
@@ -121,51 +142,94 @@ const App: React.FC = () => {
     }
   };
 
-  const handleExportSVG = () => {
-    // Select the specific canvas SVG by ID
+  // Prepare SVG for export (returns cleaned SVG element)
+  const prepareSVGForExport = (): SVGSVGElement | null => {
     const svgEl = document.getElementById('paperplot-canvas');
-    
-    if (!svgEl) {
+    if (!svgEl || !(svgEl instanceof SVGSVGElement)) {
       alert('Could not find canvas to export.');
-      return;
+      return null;
     }
     
-    // 1. Clone the node so we can modify it for export
+    // Clone the node so we can modify it for export
     const clone = svgEl.cloneNode(true) as SVGSVGElement;
     
-    // 2. Calculate Bounding Box of the content to ensure everything is visible in the export
-    // We get the <g> inside the real SVG to access getBBox()
-    const contentGroup = svgEl.querySelector('g');
+    // Get the content group (the <g> element with transform)
+    const contentGroup = svgEl.querySelector('g[transform]');
     let viewBoxStr = "0 0 800 600"; // Default fallback
+    let width = 800;
+    let height = 600;
     
     if (contentGroup) {
         try {
-            // getBBox gives the bounding box of the elements in local coords (untransformed)
-            const bbox = contentGroup.getBBox();
+            // Get bounding box - need to account for current transform
+            // First, temporarily remove transform to get accurate bbox
+            const originalTransform = contentGroup.getAttribute('transform') || '';
+            contentGroup.setAttribute('transform', '');
+            
+            const bbox = (contentGroup as SVGGElement).getBBox();
+            
+            // Restore transform
+            contentGroup.setAttribute('transform', originalTransform);
+            
             if (bbox.width > 0 && bbox.height > 0) {
                 const padding = 50;
-                viewBoxStr = `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`;
-                clone.setAttribute('width', `${bbox.width + padding * 2}`);
-                clone.setAttribute('height', `${bbox.height + padding * 2}`);
+                const minX = bbox.x - padding;
+                const minY = bbox.y - padding;
+                width = Math.max(bbox.width + padding * 2, 400);
+                height = Math.max(bbox.height + padding * 2, 300);
+                viewBoxStr = `${minX} ${minY} ${width} ${height}`;
             }
         } catch (e) {
-            console.warn("Could not calculate BBox", e);
+            console.warn("Could not calculate BBox, using default:", e);
         }
     }
 
-    // 3. Apply attributes to the clone
+    // Apply attributes to the clone
     clone.setAttribute('viewBox', viewBoxStr);
-    clone.style.backgroundColor = '#ffffff'; // Ensure white background
-    clone.removeAttribute('class'); // Remove tailwind classes that might rely on viewport
+    clone.setAttribute('width', width.toString());
+    clone.setAttribute('height', height.toString());
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    
+    // Set background
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', '#ffffff');
+    clone.insertBefore(bgRect, clone.firstChild);
+    
+    clone.removeAttribute('class');
+    clone.removeAttribute('id');
+    clone.style.backgroundColor = '#ffffff';
 
-    // 4. Remove the pan/zoom transform from the content group in the clone
-    // because the viewBox now handles the positioning
-    const cloneContentGroup = clone.querySelector('g');
+    // Remove the pan/zoom transform from the content group in clone
+    const cloneContentGroup = clone.querySelector('g[transform]');
     if (cloneContentGroup) {
         cloneContentGroup.setAttribute('transform', '');
     }
 
-    // 5. Serialize and Download
+    // Remove all interactive elements (resize handles, connection points, etc.)
+    clone.querySelectorAll('circle[style*="cursor"]').forEach(el => el.remove());
+    clone.querySelectorAll('[onmousedown]').forEach(el => {
+      el.removeAttribute('onmousedown');
+      el.removeAttribute('onmousemove');
+      el.removeAttribute('onmouseup');
+    });
+
+    // Ensure all elements are visible (remove pointer-events restrictions)
+    clone.querySelectorAll('[style*="pointer-events"]').forEach(el => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.style.pointerEvents = 'none';
+    });
+
+    return clone;
+  };
+
+  const handleExportSVG = () => {
+    const clone = prepareSVGForExport();
+    if (!clone) return;
+
+    // Serialize and Download
     const svgData = new XMLSerializer().serializeToString(clone);
     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -175,6 +239,71 @@ const App: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPNG = async () => {
+    const clone = prepareSVGForExport();
+    if (!clone) return;
+
+    try {
+      // Get dimensions
+      const width = parseInt(clone.getAttribute('width') || '800');
+      const height = parseInt(clone.getAttribute('height') || '600');
+      
+      // Serialize SVG to string
+      const svgData = new XMLSerializer().serializeToString(clone);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      // Create image from SVG
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = svgUrl;
+      });
+
+      // Create canvas and draw image
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        alert('Failed to create canvas context');
+        return;
+      }
+
+      // Fill white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw SVG image
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Convert to PNG and download
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('Failed to generate PNG');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `paperplot_${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(svgUrl);
+      }, 'image/png');
+    } catch (error) {
+      console.error('Export PNG failed:', error);
+      alert('导出 PNG 失败: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   };
 
   return (
@@ -243,13 +372,24 @@ const App: React.FC = () => {
           
           <div className="h-6 w-px bg-gray-200"></div>
           
-          <button
-            onClick={handleExportSVG}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-          >
-            <FileImage size={16} />
-            Export SVG
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportSVG}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              title="导出 SVG 格式（矢量图，可缩放）"
+            >
+              <FileImage size={16} />
+              Export SVG
+            </button>
+            <button
+              onClick={handleExportPNG}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              title="导出 PNG 格式（位图，适合插入文档）"
+            >
+              <FileImage size={16} />
+              Export PNG
+            </button>
+          </div>
         </div>
       </header>
 
@@ -257,14 +397,6 @@ const App: React.FC = () => {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left: Toolbar */}
         <Toolbar selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
-
-        {/* Left: Properties Panel (Only visible if element is selected) */}
-        <PropertiesPanel
-          element={elements.find(el => el.id === selectedElementId) || null}
-          updateElement={updateSelectedElement}
-          deleteElement={deleteSelectedElement}
-          onHistorySave={saveToHistory}
-        />
 
         {/* Center: Canvas */}
         <Canvas
@@ -275,6 +407,18 @@ const App: React.FC = () => {
           selectedElementId={selectedElementId}
           setSelectedElementId={setSelectedElementId}
           onHistorySave={saveToHistory}
+          selectedGroupId={selectedGroupId}
+          setSelectedGroupId={setSelectedGroupId}
+        />
+
+        {/* Left: Properties Panel (Overlay, only visible if element is selected) */}
+        <PropertiesPanel
+          element={elements.find(el => el.id === selectedElementId) || null}
+          elements={elements}
+          updateElement={updateSelectedElement}
+          deleteElement={deleteSelectedElement}
+          onHistorySave={saveToHistory}
+          onClose={() => setSelectedElementId(null)}
         />
 
         {/* Right: Gemini AI Input (Always visible) */}
