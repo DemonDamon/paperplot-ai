@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     // 这里不需要手动 define，只需要确保环境变量以 VITE_ 开头即可
     return {
       server: {
-        port: 3000,
+        port: 3001,
         host: '0.0.0.0',
         proxy: {
           // 代理 OpenAI 兼容 API 请求，解决 CORS 问题

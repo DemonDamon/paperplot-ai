@@ -444,7 +444,7 @@ const App: React.FC = () => {
       setConfirmClear(false);
     } else {
       setConfirmClear(true);
-      setTimeout(() => setConfirmClear(false), 3000);
+      setTimeout(() => setConfirmClear(false), 3001);
     }
   };
 
