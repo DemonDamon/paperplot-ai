@@ -390,7 +390,15 @@ function cleanDslOutput(text: string): string {
     return line;
   });
   
-  const result = fixedLines.filter(line => line !== null && line !== '').join('\n').trim();
+  let result = fixedLines.filter(line => line !== null && line !== '').join('\n').trim();
+  
+  // Auto-add theme with palette for hierarchy-structure template if not present
+  if (isHierarchyStructure && !result.includes('theme')) {
+    // Add a colorful palette for layered architecture diagrams
+    const themeDsl = `\ntheme\n  palette\n    - #10b981\n    - #3b82f6\n    - #8b5cf6\n    - #f59e0b\n    - #ef4444\n    - #ec4899`;
+    result += themeDsl;
+  }
+  
   console.log('[InfographicService] Cleaned DSL:');
   console.log(result);
   return result;
