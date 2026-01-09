@@ -1,13 +1,28 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { defineConfig } from 'vite';
+import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// 自定义插件：移除默认 CSP，允许 unsafe-eval
+function removeCSPPlugin(): Plugin {
+  return {
+    name: 'remove-csp',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        // 设置宽松的 CSP 头部，允许 eval 和 antv 资源
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' blob:; style-src * 'unsafe-inline'; style-src-elem * 'unsafe-inline'; font-src * data:; img-src * data: blob:;"
+        );
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
-    // Vite 会自动加载 .env.local 文件并以 VITE_ 开头的变量注入到 import.meta.env
-    // 这里不需要手动 define，只需要确保环境变量以 VITE_ 开头即可
     return {
       server: {
         port: 3001,
@@ -17,8 +32,8 @@ export default defineConfig(({ mode }) => {
           '/api/openai': {
             target: 'http://47.251.106.113:3010',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api\/openai/, '/v1/chat/completions'),
-            secure: false, // 如果是 http，设置为 false
+            rewrite: (path) => path.replace(/^\/api\/openai/, '/v1'),
+            secure: false,
             configure: (proxy, _options) => {
               proxy.on('error', (err, _req, _res) => {
                 console.log('代理错误:', err);
@@ -30,7 +45,10 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      plugins: [react()],
+      plugins: [
+        removeCSPPlugin(),
+        react()
+      ],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

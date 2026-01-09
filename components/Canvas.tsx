@@ -1,7 +1,10 @@
-import React, { useRef, useState, useEffect, useMemo, useImperativeHandle } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useImperativeHandle, Suspense, lazy } from 'react';
 import { DiagramElement, DiagramGroup, ToolType, Point, LineType, LineStyle, PortDirection } from '../types';
 import * as Icons from 'lucide-react';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+
+// 使用懒加载避免 @antv/infographic 的 CSP 问题影响主应用
+const InfographicRenderer = lazy(() => import('./InfographicRenderer').then(mod => ({ default: mod.InfographicRenderer })));
 
 // --- Helper: Icon Renderer ---
 const IconRenderer = ({ name, color, size }: { name?: string, color: string, size: number }) => {
@@ -819,16 +822,16 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
         }
       });
       
-      if (!isFinite(minX)) return;
+      if (!isFinite(minX) || isNaN(minX) || isNaN(maxX) || isNaN(minY) || isNaN(maxY)) return;
 
       const padding = 150; // Increased padding
-      const width = maxX - minX + padding * 2;
-      const height = maxY - minY + padding * 2;
+      const width = Math.max(100, maxX - minX + padding * 2);
+      const height = Math.max(100, maxY - minY + padding * 2);
       
       const container = svgRef.current?.parentElement;
       if (!container) return;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
+      const containerWidth = container.clientWidth || 800;
+      const containerHeight = container.clientHeight || 600;
       
       if (containerWidth === 0 || containerHeight === 0) return;
 
@@ -844,14 +847,17 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
       // Strict 1.0 approach as requested:
       let newScale = 1.0;
       
-      // Optional: if it's really small, we could fit it? No, user wants 100%.
-      
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       
-      const newPanX = containerWidth / 2 - centerX * newScale;
-      const newPanY = containerHeight / 2 - centerY * newScale;
+      let newPanX = containerWidth / 2 - centerX * newScale;
+      let newPanY = containerHeight / 2 - centerY * newScale;
       
+      if (isNaN(newPanX) || isNaN(newPanY)) {
+        newPanX = 0;
+        newPanY = 0;
+      }
+
       setScale(newScale);
       setPan({ x: newPanX, y: newPanY });
     }
@@ -1883,10 +1889,10 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
     }
   };
 
-  const nodeMap = new Map(elements.map(el => [el.id, el]));
+  const nodeMap = new Map((elements || []).map(el => [el.id, el]));
   
   // Sort: GROUP elements first (bottom), then other elements, then ARROWs last (top)
-  const sortedElements = [...elements].sort((a, b) => {
+  const sortedElements = Array.isArray(elements) ? [...elements].sort((a, b) => {
     // GROUP elements at bottom
     if (a.type === ToolType.GROUP && b.type !== ToolType.GROUP) return -1;
     if (a.type !== ToolType.GROUP && b.type === ToolType.GROUP) return 1;
@@ -1894,7 +1900,7 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
     if (a.type === ToolType.ARROW && b.type !== ToolType.ARROW) return 1;
     if (a.type !== ToolType.ARROW && b.type === ToolType.ARROW) return -1;
     return 0;
-  });
+  }) : [];
 
   return (
     <div 
@@ -2735,6 +2741,20 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
                   </>
                 )}
 
+                {/* INFOGRAPHIC 类型在 SVG 外部渲染，这里只显示占位符 */}
+                {el.type === ToolType.INFOGRAPHIC && (
+                  <rect
+                    x={el.x}
+                    y={el.y}
+                    width={el.width || 800}
+                    height={el.height || 600}
+                    fill="transparent"
+                    stroke="#e5e7eb"
+                    strokeWidth={1}
+                    strokeDasharray="4,4"
+                  />
+                )}
+
                 {isSelected && el.type !== ToolType.TEXT && el.type !== ToolType.ARROW && (
                   <>
                    {/* Background highlight (飞书风格) */}
@@ -2893,6 +2913,53 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
           })}
         </g>
       </svg>
+
+      {/* Infographic 独立渲染层 - 不在 SVG foreignObject 中，避免渲染问题 */}
+      {elements.filter(el => el.type === ToolType.INFOGRAPHIC).map(el => (
+        <div
+          key={`infographic-overlay-${el.id}`}
+          style={{
+            position: 'absolute',
+            left: pan.x + el.x * scale,
+            top: pan.y + el.y * scale,
+            width: (el.width || 800) * scale,
+            height: (el.height || 600) * scale,
+            transform: `scale(${1})`,
+            transformOrigin: 'top left',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        >
+          <div style={{
+            width: el.width || 800,
+            height: el.height || 600,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left'
+          }}>
+            <Suspense fallback={
+              <div style={{ 
+                width: '100%', 
+                height: '100%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: '#f9fafb',
+                border: '1px dashed #d1d5db',
+                borderRadius: '8px',
+                color: '#6b7280'
+              }}>
+                Loading Infographic...
+              </div>
+            }>
+              <InfographicRenderer 
+                dsl={el.dsl || ''} 
+                width={el.width || 800} 
+                height={el.height || 600} 
+              />
+            </Suspense>
+          </div>
+        </div>
+      ))}
 
       {/* Zoom Controls */}
       <div className="absolute bottom-6 right-6 flex gap-2 bg-white p-1.5 rounded-lg shadow-md border border-gray-200">

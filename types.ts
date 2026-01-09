@@ -4,7 +4,8 @@ export enum ToolType {
   CIRCLE = 'CIRCLE',
   TEXT = 'TEXT',
   ARROW = 'ARROW',
-  GROUP = 'GROUP'  // 分组/子图
+  GROUP = 'GROUP',  // 分组/子图
+  INFOGRAPHIC = 'INFOGRAPHIC'
 }
 
 export enum LineType {
@@ -67,6 +68,9 @@ export interface DiagramElement {
   
   // Group/Subgraph
   groupId?: string;  // 所属分组ID
+
+  // Infographic DSL
+  dsl?: string;
 }
 
 export interface DiagramGroup {
@@ -99,4 +103,21 @@ export interface GenerationHistory {
   prompt: string;
   image: string | null;
   timestamp: number;
+}
+
+// AI Provider Configuration
+export type AIProviderType = 'gemini' | 'bailian' | 'glm' | 'minimax' | 'openai' | 'deepseek' | 'qwen';
+
+export interface AIProviderConfig {
+  provider: AIProviderType;
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+export interface AIProviderPreset {
+  name: string;
+  defaultBaseUrl: string;
+  defaultModel: string;
+  models: string[];
 }

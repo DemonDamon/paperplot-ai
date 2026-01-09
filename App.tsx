@@ -74,7 +74,13 @@ const App: React.FC = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        setElements(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setElements(parsed);
+        } else {
+          console.warn("Saved diagram is not an array, clearing storage");
+          localStorage.removeItem(STORAGE_KEY);
+        }
       } catch (e) {
         console.error("Failed to parse saved diagram", e);
       }

@@ -1,4 +1,5 @@
-import { DiagramElement, ToolType, LineType, LineStyle } from "../types";
+import { DiagramElement, ToolType, LineType, LineStyle, AIProviderType } from "../types";
+import { getAIConfig, PROVIDER_PRESETS } from "./configService";
 
 // Helper to create a unique ID
 const generateId = () => `el_${Math.random().toString(36).substr(2, 9)}`;
@@ -18,51 +19,56 @@ const COLORS = {
   default: { fill: "#ffffff", stroke: "#475569" }  // Slate
 };
 
-// 支持的模型类型
+// 支持的模型类型 (保留向后兼容)
 export enum ModelProvider {
   GEMINI = 'gemini',
   BAILIAN = 'bailian',      // 阿里云百炼
   GLM = 'glm',               // 智谱GLM
   MINIMAX = 'minimax',       // MiniMax
-  OPENAI = 'openai'          // OpenAI
+  OPENAI = 'openai',         // OpenAI
+  DEEPSEEK = 'deepseek',     // DeepSeek
+  QWEN = 'qwen'              // 通义千问
 }
-
-// 获取当前配置的模型提供商
-const getModelProvider = (): ModelProvider => {
-  const provider = import.meta.env.VITE_AI_PROVIDER || 'gemini';
-  return provider.toLowerCase() as ModelProvider;
-};
 
 // 通用图表生成函数
 export const generateDiagramFromPrompt = async (
   prompt: string, 
   imageBase64?: string | null
 ): Promise<DiagramElement[]> => {
-  const provider = getModelProvider();
+  const config = getAIConfig();
+  
+  if (!config) {
+    throw new Error("No AI service configured. Please configure your API key in settings.");
+  }
+
+  const provider = config.provider;
   
   switch (provider) {
-    case ModelProvider.GEMINI:
-      return generateWithGemini(prompt, imageBase64);
-    case ModelProvider.BAILIAN:
-      return generateWithBailian(prompt, imageBase64);
-    case ModelProvider.GLM:
-      return generateWithGLM(prompt, imageBase64);
-    case ModelProvider.MINIMAX:
-      return generateWithMiniMax(prompt, imageBase64);
-    case ModelProvider.OPENAI:
-      return generateWithOpenAI(prompt, imageBase64);
+    case 'gemini':
+      return generateWithGemini(prompt, imageBase64, config.apiKey, config.model);
+    case 'minimax':
+      return generateWithMiniMax(prompt, imageBase64, config.apiKey, config.baseUrl, config.model);
+    case 'openai':
+    case 'deepseek':
+    case 'qwen':
+    case 'bailian':
+    case 'glm':
     default:
-      throw new Error(`Unsupported model provider: ${provider}`);
+      return generateWithOpenAI(prompt, imageBase64, config.apiKey, config.baseUrl, config.model, provider);
   }
 };
 
 // Gemini 实现
-async function generateWithGemini(prompt: string, imageBase64?: string | null): Promise<DiagramElement[]> {
+async function generateWithGemini(
+  prompt: string, 
+  imageBase64?: string | null,
+  apiKey?: string,
+  model?: string
+): Promise<DiagramElement[]> {
   const { GoogleGenAI, Type } = await import("@google/genai");
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   
   if (!apiKey) {
-    throw new Error("Gemini API Key not found. Please set VITE_GEMINI_API_KEY in .env.local");
+    throw new Error("Gemini API Key not found. Please configure in settings.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -103,7 +109,7 @@ async function generateWithGemini(prompt: string, imageBase64?: string | null): 
   });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: model || "gemini-2.0-flash",
     contents: { parts },
     config: {
       responseMimeType: "application/json",
@@ -146,161 +152,20 @@ async function generateWithGemini(prompt: string, imageBase64?: string | null): 
   return parseResponse(response.text || "{}");
 }
 
-// 阿里云百炼实现
-async function generateWithBailian(prompt: string, imageBase64?: string | null): Promise<DiagramElement[]> {
-  const apiKey = import.meta.env.VITE_BAILIAN_API_KEY;
-  const baseUrl = import.meta.env.VITE_BAILIAN_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
-  const model = import.meta.env.VITE_BAILIAN_MODEL || 'qwen-plus';
-  
-  if (!apiKey) {
-    throw new Error("Bailian API Key not found. Please set VITE_BAILIAN_API_KEY in .env.local");
-  }
-
-  const messages: any[] = [{
-    role: 'user',
-    content: [
-      {
-        type: 'text',
-        text: `Create a detailed scientific diagram structure for: "${prompt}". 
-        You must return valid JSON format only with nodes and edges. 
-        
-        CRITICAL LAYOUT REQUIREMENTS:
-        - Each node has a width of 200px and height of 100px.
-        - Nodes must be spaced far enough apart to prevent overlap. Use row and col values that ensure:
-          * Horizontal spacing: adjacent nodes in different columns should have col values that differ by at least 1 (preferably 2-3 for clarity).
-          * Vertical spacing: adjacent nodes in different rows should have row values that differ by at least 1 (preferably 2 for clarity).
-          * Avoid placing nodes too close together - leave room for arrows to connect cleanly from node edges.
-        - Arrange nodes in a logical flow: top-to-bottom or left-to-right based on the process flow.
-        - Ensure arrows can connect cleanly from one node's edge to another node's edge without crossing through nodes.
-        
-        Each node should have: id, label, icon (Lucide icon name), category (input/process/output/database/default), row, col, groupId (optional - nodes with same groupId belong to same group/subgraph).
-        Each edge should have: from, to, label.
-        If nodes belong to a logical group (like "工具集" containing multiple tools), assign them the same groupId.
-        When creating edges, ensure the from and to nodes are properly spaced to avoid visual clutter.
-        Return the result as a JSON object.`
-      }
-    ]
-  }];
-
-  if (imageBase64) {
-    const match = imageBase64.match(/^data:(.*?);base64,(.*)$/);
-    if (match) {
-      messages[0].content.push({
-        type: 'image_url',
-        image_url: {
-          url: imageBase64
-        }
-      });
-    }
-  }
-
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      input: {
-        messages
-      },
-      parameters: {
-        result_format: 'message'
-      }
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Bailian API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const content = data.output?.choices?.[0]?.message?.content || '';
-  
-  // 尝试提取 JSON
-  const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-  return parseResponse(jsonMatch ? jsonMatch[1] || jsonMatch[0] : content);
-}
-
-// GLM 实现
-async function generateWithGLM(prompt: string, imageBase64?: string | null): Promise<DiagramElement[]> {
-  const apiKey = import.meta.env.VITE_GLM_API_KEY;
-  const baseUrl = import.meta.env.VITE_GLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-  const model = import.meta.env.VITE_GLM_MODEL || 'glm-4';
-  
-  if (!apiKey) {
-    throw new Error("GLM API Key not found. Please set VITE_GLM_API_KEY in .env.local");
-  }
-
-  const messages: any[] = [{
-    role: 'user',
-    content: [
-      {
-        type: 'text',
-        text: `Create a detailed scientific diagram structure for: "${prompt}". 
-        You must return valid JSON format only with nodes and edges. 
-        
-        CRITICAL LAYOUT REQUIREMENTS:
-        - Each node has a width of 200px and height of 100px.
-        - Nodes must be spaced far enough apart to prevent overlap. Use row and col values that ensure:
-          * Horizontal spacing: adjacent nodes in different columns should have col values that differ by at least 1 (preferably 2-3 for clarity).
-          * Vertical spacing: adjacent nodes in different rows should have row values that differ by at least 1 (preferably 2 for clarity).
-          * Avoid placing nodes too close together - leave room for arrows to connect cleanly from node edges.
-        - Arrange nodes in a logical flow: top-to-bottom or left-to-right based on the process flow.
-        - Ensure arrows can connect cleanly from one node's edge to another node's edge without crossing through nodes.
-        
-        Each node should have: id, label, icon (Lucide icon name), category (input/process/output/database/default), row, col, groupId (optional - nodes with same groupId belong to same group/subgraph).
-        Each edge should have: from, to, label.
-        If nodes belong to a logical group (like "工具集" containing multiple tools), assign them the same groupId.
-        When creating edges, ensure the from and to nodes are properly spaced to avoid visual clutter.
-        Return the result as a JSON object.`
-      }
-    ]
-  }];
-
-  if (imageBase64) {
-    const match = imageBase64.match(/^data:(.*?);base64,(.*)$/);
-    if (match) {
-      messages[0].content.push({
-        type: 'image_url',
-        image_url: {
-          url: imageBase64
-        }
-      });
-    }
-  }
-
-  const response = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      response_format: { type: 'json_object' }
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`GLM API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  return parseResponse(content);
-}
-
 // MiniMax 实现
-async function generateWithMiniMax(prompt: string, imageBase64?: string | null): Promise<DiagramElement[]> {
-  const apiKey = import.meta.env.VITE_MINIMAX_API_KEY;
-  const baseUrl = import.meta.env.VITE_MINIMAX_BASE_URL || 'https://api.minimax.chat/v1/text/chatcompletion_pro';
-  const model = import.meta.env.VITE_MINIMAX_MODEL || 'abab6.5-chat';
+async function generateWithMiniMax(
+  prompt: string, 
+  imageBase64: string | null | undefined,
+  apiKey?: string,
+  baseUrl?: string,
+  model?: string
+): Promise<DiagramElement[]> {
+  const finalApiKey = apiKey || import.meta.env.VITE_MINIMAX_API_KEY;
+  const finalBaseUrl = baseUrl || import.meta.env.VITE_MINIMAX_BASE_URL || 'https://api.minimax.chat/v1/text/chatcompletion_pro';
+  const finalModel = model || import.meta.env.VITE_MINIMAX_MODEL || 'abab6.5-chat';
   
-  if (!apiKey) {
-    throw new Error("MiniMax API Key not found. Please set VITE_MINIMAX_API_KEY in .env.local");
+  if (!finalApiKey) {
+    throw new Error("MiniMax API Key not found. Please configure in settings.");
   }
 
   const messages: any[] = [{
@@ -329,14 +194,14 @@ async function generateWithMiniMax(prompt: string, imageBase64?: string | null):
     messages[0].images = [imageBase64];
   }
 
-  const response = await fetch(baseUrl, {
+  const response = await fetch(finalBaseUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': `Bearer ${finalApiKey}`
     },
     body: JSON.stringify({
-      model,
+      model: finalModel,
       messages,
       stream: false,
       response_format: 'json'
@@ -353,24 +218,34 @@ async function generateWithMiniMax(prompt: string, imageBase64?: string | null):
 }
 
 // OpenAI 实现
-async function generateWithOpenAI(prompt: string, imageBase64?: string | null): Promise<DiagramElement[]> {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  let baseUrl = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
-  const model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o';
+async function generateWithOpenAI(
+  prompt: string, 
+  imageBase64: string | null | undefined,
+  apiKey?: string,
+  baseUrl?: string,
+  model?: string,
+  provider: string = 'openai'
+): Promise<DiagramElement[]> {
+  const finalApiKey = apiKey || import.meta.env.VITE_OPENAI_API_KEY;
+  let finalBaseUrl = baseUrl || import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  const finalModel = model || import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o';
   
-  if (!apiKey) {
-    throw new Error("OpenAI API Key not found. Please set VITE_OPENAI_API_KEY in .env.local");
+  if (!finalApiKey) {
+    throw new Error(`${provider.toUpperCase()} API Key not found. Please configure in settings.`);
   }
 
   // 如果是自定义 Base URL（非 OpenAI 官方），且是开发环境，使用代理避免 CORS
-  const isCustomUrl = baseUrl.includes('47.251.106.113') || baseUrl.includes('localhost') || baseUrl.startsWith('http://');
+  const isCustomUrl = finalBaseUrl.includes('47.251.106.113') || finalBaseUrl.includes('localhost') || finalBaseUrl.startsWith('http://');
   const isDev = import.meta.env.DEV;
   
   if (isCustomUrl && isDev) {
     // 使用 Vite 代理路径
-    baseUrl = '/api/openai';
-    console.log(`[PaperPlot AI] 使用代理路径: ${baseUrl} (原始: ${import.meta.env.VITE_OPENAI_BASE_URL})`);
+    finalBaseUrl = '/api/openai';
+    console.log(`[PaperPlot AI] 使用代理路径: ${finalBaseUrl} (原始: ${baseUrl || import.meta.env.VITE_OPENAI_BASE_URL})`);
   }
+
+  const fetchUrl = buildChatCompletionsUrl(finalBaseUrl);
+  console.log(`[PaperPlot AI] Base URL (raw): "${baseUrl}", Final fetch URL: "${fetchUrl}"`);
 
   const messages: any[] = [{
     role: 'user',
@@ -410,18 +285,18 @@ async function generateWithOpenAI(prompt: string, imageBase64?: string | null): 
     }
   }
 
-  console.log(`[PaperPlot AI] 请求 OpenAI API: ${baseUrl}`);
-  console.log(`[PaperPlot AI] 使用模型: ${model}`);
+  console.log(`[PaperPlot AI] 请求 ${provider.toUpperCase()} API: ${fetchUrl}`);
+  console.log(`[PaperPlot AI] 使用模型: ${finalModel}`);
   
   try {
-    const response = await fetch(baseUrl, {
+    const response = await fetch(fetchUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${finalApiKey}`
       },
       body: JSON.stringify({
-        model,
+        model: finalModel,
         messages,
         response_format: { type: 'json_object' }
       })
@@ -432,7 +307,7 @@ async function generateWithOpenAI(prompt: string, imageBase64?: string | null): 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[PaperPlot AI] API 错误响应:`, errorText);
-      throw new Error(`OpenAI API error (${response.status}): ${response.statusText}. ${errorText.substring(0, 200)}`);
+      throw new Error(`${provider.toUpperCase()} API error (${response.status}): ${response.statusText}. ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
@@ -448,13 +323,35 @@ async function generateWithOpenAI(prompt: string, imageBase64?: string | null): 
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
       console.error(`[PaperPlot AI] 网络请求失败:`, error);
-      throw new Error(`网络请求失败: 无法连接到 ${baseUrl}。请检查：1) 服务器是否可访问 2) CORS 配置 3) 网络连接`);
+      throw new Error(`网络请求失败: 无法连接到 ${fetchUrl}。请检查：1) 服务器是否可访问 2) CORS 配置 3) 网络连接`);
     }
     throw error;
   }
 }
 
-// 解析响应为图表元素
+// 规范化 Base URL，确保最终为正确的 chat/completions 端点
+export function buildChatCompletionsUrl(baseUrl?: string): string {
+  // 默认使用官方地址
+  let url = (baseUrl || 'https://api.openai.com/v1').trim();
+
+  // 去掉尾部斜杠
+  url = url.replace(/\/+$/, '');
+
+  // 如果 URL 已经以 /chat/completions 结尾，直接返回（不要再加）
+  if (url.endsWith('/chat/completions')) {
+    return url;
+  }
+
+  // 如果 URL 包含 /chat/completions 但后面还有东西，截取到 /chat/completions
+  const chatCompletionsIdx = url.indexOf('/chat/completions');
+  if (chatCompletionsIdx !== -1) {
+    return url.slice(0, chatCompletionsIdx + '/chat/completions'.length);
+  }
+
+  // 否则，添加 /chat/completions
+  return `${url}/chat/completions`;
+}
+
 function parseResponse(responseText: string): DiagramElement[] {
   let rawData: any;
   try {
@@ -469,8 +366,17 @@ function parseResponse(responseText: string): DiagramElement[] {
     }
   }
 
-  const nodes = rawData.nodes || [];
-  const edges = rawData.edges || [];
+  const nodes = rawData.nodes || rawData.elements || [];
+  const edges = rawData.edges || rawData.connections || [];
+
+  if (nodes.length === 0 && edges.length === 0) {
+    console.warn('[PaperPlot AI] No nodes or edges found in AI response:', rawData);
+    // If it's not in the expected format, try to find any array that might be elements
+    const possibleElements = Object.values(rawData).find(v => Array.isArray(v) && v.length > 0);
+    if (possibleElements) {
+       console.log('[PaperPlot AI] Found alternative elements array, attempting to use it.');
+    }
+  }
 
   const finalElements: DiagramElement[] = [];
   const nodeMap = new Map<string, DiagramElement>();
