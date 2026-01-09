@@ -12,32 +12,93 @@ CRITICAL RULES:
 4. If user provides mermaid/flowchart code, extract the key concepts and convert to this DSL format.
 
 TEMPLATE SELECTION GUIDE:
-- sequence-color-snake-steps-horizontal-icon-line: 长流程，蛇形布局
-- sequence-ascending-stairs-3d-underline-text: 阶梯式进阶，成长路径
-- sequence-mountain-underline-text: 山峰形状，目标达成
-- sequence-cylinders-3d-simple: 3D圆柱，阶段性
-- sequence-roadmap-vertical-simple: 垂直路线图，里程碑
-- sequence-pyramid-simple: 金字塔结构，层级递进
-- compare-binary-horizontal-underline-text-vs: 左右PK，显式 VS 标志
-- compare-swot: SWOT 分析专用
-- quadrant-quarter-simple-card: 四象限分析 (重要紧急、波士顿矩阵)
-- hierarchy-tree-tech-style-badge-card: 科技感树形图
-- list-grid-badge-card: 网格布局，特性列表
+- hierarchy-structure: Layered architecture diagrams (分层架构图), system layers with components
+- sequence-color-snake-steps-horizontal-icon-line: Long process, snake layout (长流程，蛇形布局)
+- sequence-ascending-stairs-3d-underline-text: Step progression, growth path (阶梯式进阶，成长路径)
+- sequence-mountain-underline-text: Mountain shape, goal achievement (山峰形状，目标达成)
+- sequence-cylinders-3d-simple: 3D cylinders, phases (3D圆柱，阶段性)
+- sequence-roadmap-vertical-simple: Vertical roadmap, milestones (垂直路线图，里程碑)
+- sequence-pyramid-simple: Pyramid structure, hierarchy (金字塔结构，层级递进)
+- compare-binary-horizontal-underline-text-vs: Left-right comparison with VS (左右PK，显式 VS 标志)
+- compare-swot: SWOT analysis (SWOT 分析专用)
+- quadrant-quarter-simple-card: Four quadrant analysis (四象限分析)
+- hierarchy-tree-tech-style-badge-card: Tech-style tree diagram (科技感树形图)
+- hierarchy-mindmap: Mind map with branches (思维导图)
+- list-grid-badge-card: Grid layout, feature list (网格布局，特性列表)
+- list-column-simple-vertical-arrow: Vertical list with arrows (垂直列表)
 
 TEMPLATE SELECTION RULES:
+- If prompt contains "分层架构" or "layered architecture" or "system layers": use hierarchy-structure
 - If prompt contains "SWOT": use compare-swot
-- If prompt contains "vs" or "PK": use compare-binary-horizontal-underline-text-vs
-- If prompt contains "象限" or "矩阵": use quadrant-quarter-simple-card
-- If prompt contains "金字塔": use sequence-pyramid-simple
+- If prompt contains "vs" or "PK" or "对比": use compare-binary-horizontal-underline-text-vs
+- If prompt contains "象限" or "矩阵" or "quadrant": use quadrant-quarter-simple-card
+- If prompt contains "金字塔" or "pyramid": use sequence-pyramid-simple
 - If prompt contains "路线图" or "Roadmap": use sequence-roadmap-vertical-simple
-- For "流程/步骤/Timeline": use sequence-color-snake-steps-horizontal-icon-line
-- For "成长/阶梯/Level": use sequence-ascending-stairs-3d-underline-text
-- For "组织/架构/Tree": use hierarchy-tree-tech-style-badge-card
+- For "流程/步骤/Timeline/process/steps": use sequence-color-snake-steps-horizontal-icon-line
+- For "成长/阶梯/Level/growth": use sequence-ascending-stairs-3d-underline-text
+- For "组织/架构/Tree/organization" (non-layered): use hierarchy-tree-tech-style-badge-card
+- For "思维导图/mindmap": use hierarchy-mindmap
 - Default: list-column-simple-vertical-arrow
 
 TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
 
-1. compare-binary-horizontal-underline-text-vs (Two items ONLY):
+1. hierarchy-structure (Layered Architecture - IMPORTANT):
+   Use this for system architecture with horizontal layers, each layer containing multiple components.
+   Each top-level item is a LAYER, and children are COMPONENTS within that layer.
+   
+   infographic hierarchy-structure
+   data
+     title <Architecture Title>
+     desc <Description>
+     items
+       - label <Layer 1 Name>
+         children
+           - label <Component 1>
+           - label <Component 2>
+           - label <Component 3>
+       - label <Layer 2 Name>
+         children
+           - label <Module A>
+             children
+               - label <Sub-component 1>
+               - label <Sub-component 2>
+           - label <Module B>
+             children
+               - label <Sub-component 1>
+               - label <Sub-component 2>
+       - label <Layer 3 Name>
+         children
+           - label <Service 1>
+           - label <Service 2>
+
+   EXAMPLE - System Layered Architecture:
+   infographic hierarchy-structure
+   data
+     title System Layered Architecture
+     desc Shows the interaction flow between client and system layer components
+     items
+       - label Client Layer
+         children
+           - label Web Client
+           - label Mobile App
+           - label Desktop Client
+       - label Request Dispatch Layer
+         children
+           - label Load Balancer
+           - label API Gateway
+           - label Router
+       - label Service Instance Layer
+         children
+           - label Instance 1 (Session-A)
+           - label Instance 2 (Session-B)
+           - label Instance 3 (Session-C)
+       - label Persistence Layer
+         children
+           - label Database
+           - label Cache
+           - label File Storage
+
+2. compare-binary-horizontal-underline-text-vs (Two items ONLY):
    infographic compare-binary-horizontal-underline-text-vs
    data
      title <title>
@@ -51,7 +112,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
            - label <Point 1>
            - label <Point 2>
 
-2. compare-swot (Four items ONLY):
+3. compare-swot (Four items ONLY):
    infographic compare-swot
    data
      title <title>
@@ -69,7 +130,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
          children
            - label <Point 1>
 
-3. quadrant-quarter-simple-card (Four items ONLY):
+4. quadrant-quarter-simple-card (Four items ONLY):
    infographic quadrant-quarter-simple-card
    data
      title <title>
@@ -83,7 +144,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
        - label <Quadrant 4>
          desc <Description>
 
-4. sequence-pyramid-simple (Bottom-up hierarchy):
+5. sequence-pyramid-simple (Bottom-up hierarchy):
    infographic sequence-pyramid-simple
    data
      title <title>
@@ -95,7 +156,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
        - label <Level 3 (Top)>
          desc <Detail>
 
-5. sequence-color-snake-steps-horizontal-icon-line:
+6. sequence-color-snake-steps-horizontal-icon-line:
    infographic sequence-color-snake-steps-horizontal-icon-line
    data
      title <title>
@@ -107,7 +168,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
          time <Time/Index>
          icon <mdi/icon-name>
 
-4. sequence-ascending-stairs-3d-underline-text:
+7. sequence-ascending-stairs-3d-underline-text:
    infographic sequence-ascending-stairs-3d-underline-text
    data
      title <title>
@@ -118,7 +179,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
        - label <Step 2>
          desc <Detail>
 
-5. hierarchy-tree-tech-style-compact-card:
+8. hierarchy-tree-tech-style-compact-card:
    infographic hierarchy-tree-tech-style-compact-card
    data
      title <title>
@@ -131,75 +192,91 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
                - label <Leaf 2>
            - label <Branch 2>
 
-FOR COMPLEX STRUCTURES (like mermaid with multiple subgraphs):
-- Use 'list-column-simple-vertical-arrow' for vertical flow
-- Flatten the structure: each major section becomes one item
-- Include sub-items in the description (do NOT use nested children)
+9. hierarchy-mindmap:
+   infographic hierarchy-mindmap
+   data
+     title <title>
+     items
+       - label <Topic 1>
+         children
+           - label <Subtopic 1>
+           - label <Subtopic 2>
+       - label <Topic 2>
+         children
+           - label <Subtopic 1>
+           - label <Subtopic 2>
 
-EXAMPLE for complex structure (note the 4-space indent for list items):
-infographic list-column-simple-vertical-arrow
-data
-  title AgentRun 功能分布
-  desc 覆盖 Agent 全生命周期
-  items
-    - label Agent 开发层
-      desc 低代码搭建 → 高代码开发 → 框架集成
-      icon code
-    - label Agent 运行时
-      desc Serverless 环境、会话隔离、弹性伸缩、安全机制
-      icon server
-    - label 工具运行时
-      desc Sandbox 沙箱、MCP 工具、Function Call
-      icon wrench
-    - label Agent 运维
-      desc 模型治理、链路追踪、指标观测、凭证管理
-      icon settings
+10. list-column-simple-vertical-arrow:
+    infographic list-column-simple-vertical-arrow
+    data
+      title <title>
+      desc <description>
+      items
+        - label <Item 1>
+          desc <Detail>
+          icon <icon-name>
+        - label <Item 2>
+          desc <Detail>
+          icon <icon-name>
 
 CRITICAL INDENTATION RULES (strictly follow):
 - 'data' = 0 spaces
 - 'title', 'desc', 'items' under data = 2 spaces
 - '- label' under items = 4 spaces (TWO levels of 2-space indent)
-- 'desc', 'icon' under list item = 6 spaces (THREE levels)
+- 'desc', 'icon', 'children' under list item = 6 spaces (THREE levels)
+- Nested '- label' under children = 8 spaces (FOUR levels)
+- Further nested children = 10 spaces, and so on
 
 CORRECT EXAMPLES:
 
-Example 1 - Horizontal flow:
+Example 1 - Layered Architecture (hierarchy-structure):
+infographic hierarchy-structure
+data
+  title Microservices Architecture
+  desc Three-tier architecture with gateway, services, and data layer
+  items
+    - label Gateway Layer
+      children
+        - label API Gateway
+        - label Load Balancer
+    - label Service Layer
+      children
+        - label User Service
+        - label Order Service
+        - label Payment Service
+    - label Data Layer
+      children
+        - label MySQL
+        - label Redis
+        - label MongoDB
+
+Example 2 - Horizontal flow:
 infographic list-row-simple-horizontal-arrow
 data
-  title RAG 工作流程
+  title RAG Workflow
   items
-    - label 用户提问
-      desc 提出问题
+    - label User Query
+      desc Ask a question
       icon message-circle
-    - label 检索知识库
-      desc 搜索相关信息
+    - label Search Knowledge Base
+      desc Search relevant information
       icon search
-    - label 生成答案
-      desc AI 生成回复
+    - label Generate Answer
+      desc AI generates response
       icon sparkles
-
-Example 2 - Comparison (NO icon property!):
-infographic compare-binary
-data
-  title React vs Vue 框架对比
-  items
-    - label React
-      desc 虚拟DOM、高度可扩展、丰富生态、JSX语法、灵活但需要更多配置
-    - label Vue
-      desc 双向数据绑定、易于上手、模板语法、内置指令、集成度高适合中小项目
 
 Example 3 - Mindmap (with children):
 infographic hierarchy-mindmap
 data
-  title AI 技术栈
+  title AI Technology Stack
   items
-    - label 机器学习
+    - label Machine Learning
       children
-        - label 监督学习
-        - label 无监督学习
-    - label 深度学习
+        - label Supervised Learning
+        - label Unsupervised Learning
+    - label Deep Learning
       children
-        - label 神经网络
+        - label Neural Networks
         - label CNN
 `;
 
@@ -225,15 +302,19 @@ function cleanDslOutput(text: string): string {
   //   items (2 spaces)
   //     - label (4 spaces)
   //       desc (6 spaces)
+  //       children (6 spaces)
+  //         - label (8 spaces)
   
   const lines = cleanedText.split('\n');
   let inItems = false;
   let itemDepth = 0;
+  let childrenDepth = 0;
   
   // Detect template type first
   const templateMatch = cleanedText.match(/^infographic\s+(\S+)/m);
   const templateName = templateMatch?.[1] || '';
   const isCompareTemplate = templateName.startsWith('compare-');
+  const isHierarchyStructure = templateName === 'hierarchy-structure';
   const isWordcloudTemplate = templateName === 'chart-wordcloud';
   
   const fixedLines = lines.map((line, index) => {
@@ -246,12 +327,22 @@ function cleanDslOutput(text: string): string {
     // Detect structure
     if (trimmed === 'data') {
       inItems = false;
+      childrenDepth = 0;
       return 'data';
+    }
+    if (trimmed === 'theme') {
+      inItems = false;
+      childrenDepth = 0;
+      return 'theme';
     }
     if (trimmed === 'items') {
       inItems = true;
       itemDepth = 0;
+      childrenDepth = 0;
       return '  items';
+    }
+    if (trimmed === 'palette') {
+      return '  palette';
     }
     if (trimmed.startsWith('title ') || trimmed.startsWith('desc ')) {
       // title/desc under data should be 2-space indented
@@ -259,26 +350,40 @@ function cleanDslOutput(text: string): string {
         return '  ' + trimmed;
       }
     }
+    
+    // Handle children keyword
+    if (trimmed === 'children') {
+      childrenDepth++;
+      const indent = '      ' + '  '.repeat(Math.max(0, childrenDepth - 1));
+      return indent + 'children';
+    }
+    
     if (trimmed.startsWith('- ') || trimmed.startsWith('- label')) {
-      // List items under 'items' should be 4-space indented
-      itemDepth = 4;
+      if (inItems) {
+        // Calculate indent based on children depth
+        // Base: 4 spaces for first level items
+        // Add 4 spaces for each children level
+        const baseIndent = 4 + (childrenDepth * 4);
+        const indent = ' '.repeat(baseIndent);
+        return indent + trimmed;
+      }
+      // For palette items in theme
       return '    ' + trimmed;
     }
-    if (inItems && itemDepth > 0) {
-      // Remove 'icon' property for compare templates (not supported)
-      if (isCompareTemplate && trimmed.startsWith('icon ')) {
-        return null; // Skip this line
-      }
-      
+    
+    if (inItems && (trimmed.startsWith('desc ') || trimmed.startsWith('icon ') || 
+        trimmed.startsWith('value ') || trimmed.startsWith('time '))) {
       // Properties under list items
-      if (trimmed.startsWith('desc ') || trimmed.startsWith('icon ') || 
-          trimmed.startsWith('value ') || trimmed.startsWith('children')) {
-        return '      ' + trimmed;
-      }
-      // Nested list items (for mindmap children)
-      if (trimmed.startsWith('- ')) {
-        return '        ' + trimmed;
-      }
+      // Base: 6 spaces for first level item properties
+      // Add 4 spaces for each children level
+      const baseIndent = 6 + (childrenDepth * 4);
+      const indent = ' '.repeat(baseIndent);
+      return indent + trimmed;
+    }
+    
+    // Remove 'icon' property for compare templates (not supported)
+    if (isCompareTemplate && trimmed.startsWith('icon ')) {
+      return null; // Skip this line
     }
     
     // Fallback: keep original if we don't recognize the pattern

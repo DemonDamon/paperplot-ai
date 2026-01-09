@@ -1,66 +1,82 @@
-# Infographic 模板使用指南
+# Infographic Template Guide
 
-## 🚀 快捷指令 (Aliases)
+## Quick Commands (Aliases)
 
-为了方便使用，我们支持以下简短指令：
+For convenience, the following shortcut commands are supported:
 
-| 指令 | 对应模板 | 用途 |
+| Command | Template | Use Case |
 | :--- | :--- | :--- |
-| `/vs` | compare-binary-horizontal-underline-text-vs | A vs B 左右对比 |
-| `/swot` | compare-swot | SWOT 分析 |
-| `/tree` | hierarchy-tree-tech-style-badge-card | 组织架构/技术树 |
-| `/snake` | sequence-color-snake-steps-horizontal-icon-line | 长流程/时间线 |
-| `/stairs` | sequence-ascending-stairs-3d-underline-text | 进阶/成长路径 |
-| `/mountain` | sequence-mountain-underline-text | 目标达成 |
-| `/roadmap` | sequence-roadmap-vertical-simple | 路线图 |
-| `/pyramid` | sequence-pyramid-simple | 金字塔层级 |
-| `/quadrant` | quadrant-quarter-simple-card | 四象限分析 |
+| `/layers` | hierarchy-structure | Layered architecture diagrams |
+| `/vs` | compare-binary-horizontal-underline-text-vs | A vs B side-by-side comparison |
+| `/swot` | compare-swot | SWOT analysis |
+| `/tree` | hierarchy-tree-tech-style-badge-card | Organization/tech tree |
+| `/mindmap` | hierarchy-mindmap | Mind map |
+| `/snake` | sequence-color-snake-steps-horizontal-icon-line | Long process/timeline |
+| `/stairs` | sequence-ascending-stairs-3d-underline-text | Progression/growth path |
+| `/mountain` | sequence-mountain-underline-text | Goal achievement |
+| `/roadmap` | sequence-roadmap-vertical-simple | Roadmap |
+| `/pyramid` | sequence-pyramid-simple | Pyramid hierarchy |
+| `/quadrant` | quadrant-quarter-simple-card | Four quadrant analysis |
 
-## 💡 提示词示例
+## Prompt Examples
 
-### 1. 左右对比
+### 1. Layered Architecture (NEW!)
+```
+/layers Microservices Architecture:
+- Gateway Layer: API Gateway, Load Balancer
+- Service Layer: User Service, Order Service, Payment Service
+- Data Layer: MySQL, Redis, MongoDB
+```
+
+### 2. Side-by-side Comparison
 ```
 /vs React vs Vue:
-React: 虚拟DOM、灵活性高
-Vue: 双向绑定、易于上手
+React: Virtual DOM, High flexibility
+Vue: Two-way binding, Easy to learn
 ```
 
-### 2. SWOT 分析
+### 3. SWOT Analysis
 ```
-/swot Tesla 分析：
-Strengths: 品牌、技术
-Weaknesses: 产能
-Opportunities: 政策、储能
-Threats: 竞争
+/swot Tesla Analysis:
+Strengths: Brand, Technology
+Weaknesses: Production capacity
+Opportunities: Policy, Energy storage
+Threats: Competition
 ```
 
-### 3. 技术架构树
+### 4. Tech Tree
 ```
-/tree 深度学习体系：
-- 神经网络
+/tree Deep Learning System:
+- Neural Networks
   - CNN
   - RNN
-- 生成模型
+- Generative Models
   - GAN
   - Diffusion
 ```
 
-### 4. 蛇形时间线
+### 5. Snake Timeline
 ```
-/snake 产品发布计划：
-1. 需求分析 (Q1) icon: search
-2. 设计开发 (Q2) icon: edit
-3. 测试上线 (Q3) icon: rocket
-```
-
-### 5. 成长阶梯
-```
-/stairs 程序员进阶：初级 -> 中级 -> 高级 -> 专家
+/snake Product Release Plan:
+1. Requirements Analysis (Q1) icon: search
+2. Design & Development (Q2) icon: edit
+3. Testing & Launch (Q3) icon: rocket
 ```
 
-## 🎨 完整模板列表
+### 6. Growth Stairs
+```
+/stairs Developer Progression: Junior -> Mid-level -> Senior -> Expert
+```
 
-### 1. 序列类 (Sequence)
+## Complete Template List
+
+### 1. Hierarchy (NEW: hierarchy-structure)
+- `hierarchy-structure` (🏗️ /layers) - **Layered architecture diagrams**
+- `hierarchy-tree-tech-style-badge-card` (🌳 /tree)
+- `hierarchy-tree-curved-line-rounded-rect-node` (🌿)
+- `hierarchy-mindmap` (🧠 /mindmap)
+
+### 2. Sequence
 - `sequence-color-snake-steps-horizontal-icon-line` (🐍 /snake)
 - `sequence-ascending-stairs-3d-underline-text` (📊 /stairs)
 - `sequence-mountain-underline-text` (🏔️ /mountain)
@@ -68,25 +84,81 @@ Threats: 竞争
 - `sequence-pyramid-simple` (⚠️ /pyramid)
 - `sequence-cylinders-3d-simple` (🛢️ /cylinders)
 
-### 2. 对比类 (Comparison)
+### 3. Comparison
 - `compare-binary-horizontal-underline-text-vs` (🆚 /vs)
 - `compare-swot` (📋 /swot)
 - `compare-hierarchy-row-letter-card-compact-card` (↔️ /compare)
 
-### 3. 层级类 (Hierarchy)
-- `hierarchy-tree-tech-style-badge-card` (🌳 /tree)
-- `hierarchy-tree-curved-line-rounded-rect-node` (🌿)
-
-### 4. 象限类 (Quadrant)
+### 4. Quadrant
 - `quadrant-quarter-simple-card` (💠 /quadrant)
 
-## 📝 使用方法
+### 5. List
+- `list-column-simple-vertical-arrow` (📋 default)
+- `list-row-simple-horizontal-arrow` (➡️)
+- `list-grid-badge-card` (📦)
 
-### 方法1：指令模式（推荐）
-在提示词开头使用 `/指令` 或 `/完整模板名`。
+## hierarchy-structure DSL Format
 
-### 方法2：UI 选择器
-1. 勾选 "Use Infographic Engine"
-2. 在"模板类型"下拉菜单选择模板
-3. 输入描述内容
-4. 点击 "Generate Diagram"
+The `hierarchy-structure` template is designed for **layered architecture diagrams** where each layer contains multiple components.
+
+### Correct DSL Format:
+```
+infographic hierarchy-structure
+data
+  title System Architecture
+  desc Description of the architecture
+  items
+    - label Layer 1 Name
+      children
+        - label Component A
+        - label Component B
+    - label Layer 2 Name
+      children
+        - label Module 1
+          children
+            - label Sub-component 1
+            - label Sub-component 2
+        - label Module 2
+    - label Layer 3 Name
+      children
+        - label Service 1
+        - label Service 2
+```
+
+### Example - Three-tier Architecture:
+```
+infographic hierarchy-structure
+data
+  title Microservices Architecture
+  desc Three-tier architecture with gateway, services, and data layer
+  items
+    - label Gateway Layer
+      children
+        - label API Gateway
+        - label Load Balancer
+    - label Service Layer
+      children
+        - label User Service
+        - label Order Service
+        - label Payment Service
+    - label Data Layer
+      children
+        - label MySQL
+        - label Redis
+        - label MongoDB
+```
+
+## Usage Methods
+
+### Method 1: Command Mode (Recommended)
+Use `/command` or `/full-template-name` at the beginning of your prompt.
+
+### Method 2: UI Selector
+1. Check "Use Infographic Engine"
+2. Select template from the "Template Type" dropdown
+3. Enter description content
+4. Click "Generate Diagram"
+
+---
+*Author: Damon Li*  
+*Last Updated: January 9, 2026*

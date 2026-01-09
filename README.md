@@ -1,120 +1,93 @@
-# PaperPlot AI
+# ArchitextAI: AI-Powered Diagramming
 
-基于 AI 的图表绘制工具，支持文本/图片生成流程图、架构图等。适用于演示和论文场景。
+**A professional AI-powered diagramming tool that automatically generates flowcharts, architecture diagrams, and various infographics from text or image inputs. Ideal for presentations, academic papers, and technical documentation.**
 
-## 功能
+---
 
-- 手动绘制：矩形、圆形、箭头、文本
-- AI 生成：文本描述或图片输入生成图表
-- 智能连接：箭头自动连接节点
-- 本地存储：自动保存，支持撤销/重做
-- SVG 导出
-- 画布缩放/平移
+*Author: Damon Li*
+*Date: January 9, 2026*
 
-## 快速开始
+## Key Features
 
-```bash
-npm install
-npm run dev
-```
+- **AI-Powered Generation**: Instantly create diagrams from text descriptions or image uploads.
+- **Advanced Infographics**: Utilizes `@antv/infographic` to generate a wide variety of professional infographics, including:
+  - Layered Architecture Diagrams (`hierarchy-structure`)
+  - Flow Timelines (`sequence-color-snake-steps-horizontal-icon-line`)
+  - Comparison Charts (`compare-binary`)
+  - SWOT Analysis (`compare-swot`)
+  - And many more.
+- **Manual Drawing Toolkit**: Includes tools for creating and editing shapes (rectangles, circles), arrows, and text labels.
+- **Smart Connections**: Arrows automatically snap to and connect with diagram nodes.
+- **Element Grouping**: Group related elements together for better organization.
+- **Persistent Workspace**: Your work is automatically saved to local storage.
+- **History Control**: Full support for undo and redo actions.
+- **High-Quality Export**: Export your diagrams as clean, scalable SVG files.
+- **Multi-Provider AI Support**: Flexible integration with various AI models, including:
+  - Gemini
+  - OpenAI
+  - Alibaba Cloud (Bailian/Qwen)
+  - ZhipuAI (GLM)
+  - MiniMax
+  - DeepSeek
 
-访问 `http://localhost:3001`
+## Quick Start
 
-## 配置
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-创建 `.env.local` 文件，配置 AI 模型：
+2.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
 
-```bash
-VITE_AI_PROVIDER=gemini  # gemini | bailian | glm | minimax | openai
-VITE_GEMINI_API_KEY=your_key_here
-```
+3.  Open your browser and navigate to `http://localhost:5173` (or the port specified in your terminal).
 
-### 支持的模型
+## Configuration
 
-#### Gemini (默认)
+To enable AI features, you need to configure an AI provider. Create a `.env.local` file in the root of the project and add your API key.
 
-```bash
+### Example: Using Google Gemini
+
+```.env.local
 VITE_AI_PROVIDER=gemini
-VITE_GEMINI_API_KEY=your_key
+VITE_GEMINI_API_KEY=your_google_ai_api_key
 ```
 
-API Key: https://makersuite.google.com/app/apikey
+### Supported AI Providers
 
-#### 阿里云百炼
+You can configure any of the following providers by setting `VITE_AI_PROVIDER` and the corresponding API key variable.
 
-```bash
-VITE_AI_PROVIDER=bailian
-VITE_BAILIAN_API_KEY=your_key
-VITE_BAILIAN_MODEL=qwen-plus  # 可选，默认 qwen-plus
-```
+| Provider | `VITE_AI_PROVIDER` value | API Key Variable | Models | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| Google Gemini | `gemini` | `VITE_GEMINI_API_KEY` | `gemini-2.0-flash`, etc. | Default provider. |
+| OpenAI | `openai` | `VITE_OPENAI_API_KEY` | `gpt-4o`, `gpt-4.1-mini` | Supports custom `VITE_OPENAI_BASE_URL`. |
+| Alibaba Qwen | `qwen` | `VITE_QWEN_API_KEY` | `qwen-plus`, etc. | Uses OpenAI-compatible API. |
+| Zhipu GLM | `glm` | `VITE_GLM_API_KEY` | `glm-4`, etc. | Uses OpenAI-compatible API. |
+| MiniMax | `minimax` | `VITE_MINIMAX_API_KEY` | `abab6.5-chat`, etc. | Uses OpenAI-compatible API. |
+| DeepSeek | `deepseek` | `VITE_DEEPSEEK_API_KEY` | `deepseek-chat`, etc. | Uses OpenAI-compatible API. |
 
-API Key: https://bailian.console.aliyun.com/
+**Note:** All environment variables must be prefixed with `VITE_` as required by the Vite framework.
 
-#### GLM
+## Technology Stack
 
-```bash
-VITE_AI_PROVIDER=glm
-VITE_GLM_API_KEY=your_key
-VITE_GLM_MODEL=glm-4  # 可选，默认 glm-4
-```
+- **Frontend**: React 19, TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Infographics**: `@antv/infographic`
 
-API Key: https://open.bigmodel.cn/
-
-#### MiniMax
-
-```bash
-VITE_AI_PROVIDER=minimax
-VITE_MINIMAX_API_KEY=your_key
-VITE_MINIMAX_MODEL=abab6.5-chat  # 可选
-```
-
-API Key: https://www.minimax.chat/
-
-#### OpenAI
-
-```bash
-VITE_AI_PROVIDER=openai
-VITE_OPENAI_API_KEY=your_key
-VITE_OPENAI_MODEL=gpt-4o  # 可选，默认 gpt-4o
-VITE_OPENAI_BASE_URL=https://api.openai.com/v1/chat/completions  # 可选，支持代理
-```
-
-API Key: https://platform.openai.com/
-
-## 环境变量
-
-| 变量 | 说明 | 必需 |
-|------|------|------|
-| `VITE_AI_PROVIDER` | 模型提供商 | ✅ |
-| `VITE_*_API_KEY` | 对应模型的 API Key | ✅ |
-| `VITE_*_BASE_URL` | 自定义 API 地址 | ❌ |
-| `VITE_*_MODEL` | 模型名称 | ❌ |
-
-所有变量必须以 `VITE_` 开头（Vite 要求）。
-
-## 构建
-
-```bash
-npm run build      # 构建生产版本
-npm run preview    # 预览构建产物
-```
-
-## 技术栈
-
-- React 19 + TypeScript
-- Vite 6
-- Tailwind CSS
-- Lucide React
-
-## 项目结构
+## Project Structure
 
 ```
-components/     # React 组件
-services/       # AI 服务层（多模型支持）
-types.ts        # TypeScript 类型
-App.tsx         # 主应用
+/src
+├── components/   # Core React components (Canvas, Toolbar, etc.)
+├── services/     # AI service layer (multi-provider logic, infographic generation)
+├── types.ts      # TypeScript type definitions
+└── App.tsx       # Main application component and state management
 ```
 
 ## License
 
-MIT
+This project is licensed under the MIT License.
