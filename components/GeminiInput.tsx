@@ -133,7 +133,8 @@ export const GeminiInput: React.FC<GeminiInputProps> = ({
     try {
       if (useInfographic) {
         // 解析提示词中的模板指令（支持别名）
-        let templateOverride = selectedTemplate;
+        // 优先级：/command 指令 > 下拉框选择 > AI 自动推断
+        let templateToUse = selectedTemplate;
         let actualPrompt = prompt;
         
         // 匹配 /command 格式
@@ -145,21 +146,24 @@ export const GeminiInput: React.FC<GeminiInputProps> = ({
           // 1. 检查是否是完整模板名
           const validTemplate = templates.find(t => t.value === lowerCommand);
           if (validTemplate) {
-            templateOverride = lowerCommand;
+            templateToUse = lowerCommand;
             actualPrompt = content;
             console.log(`[GeminiInput] 检测到完整模板指令: /${lowerCommand}`);
           } 
           // 2. 检查是否是别名 (Alias)
           else if (templateAliases[lowerCommand]) {
-            templateOverride = templateAliases[lowerCommand];
+            templateToUse = templateAliases[lowerCommand];
             actualPrompt = content;
-            console.log(`[GeminiInput] 检测到别名指令: /${lowerCommand} -> ${templateOverride}`);
+            console.log(`[GeminiInput] 检测到别名指令: /${lowerCommand} -> ${templateToUse}`);
           }
         }
         
+        console.log(`[GeminiInput] 最终使用模板: ${templateToUse}, 提示词: ${actualPrompt.substring(0, 50)}...`);
+        
         // 收集完整的 DSL（不要流式更新，避免组件频繁重新挂载）
+        // 将选择的模板传递给生成函数
         let completeDsl = '';
-        for await (const dsl of generateInfographicDsl(actualPrompt, image)) {
+        for await (const dsl of generateInfographicDsl(actualPrompt, image, templateToUse)) {
           completeDsl = dsl;
           console.log('[GeminiInput] DSL generation progress:', dsl.length, 'chars');
         }

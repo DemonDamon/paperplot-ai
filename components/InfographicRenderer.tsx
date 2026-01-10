@@ -18,9 +18,21 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  
+  // 用于防抖的尺寸状态
+  const [debouncedSize, setDebouncedSize] = useState({ width: 0, height: 0 });
 
   const numericWidth = typeof width === 'number' ? width : 800;
   const numericHeight = typeof height === 'number' ? height : 600;
+  
+  // 防抖处理尺寸变化，避免拖拽时频繁重渲染
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSize({ width: numericWidth, height: numericHeight });
+    }, 300); // 300ms 防抖
+    
+    return () => clearTimeout(timer);
+  }, [numericWidth, numericHeight]);
 
   // 第一个 effect：标记组件已挂载
   useEffect(() => {
@@ -28,10 +40,15 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
     return () => setMounted(false);
   }, []);
 
-  // 第二个 effect：当组件挂载且有 dsl 时，加载并渲染
+  // 第二个 effect：当组件挂载且有 dsl 或尺寸变化时，加载并渲染
   useEffect(() => {
     if (!mounted || !dsl || !dsl.trim()) {
       setLoading(false);
+      return;
+    }
+    
+    // 等待防抖尺寸初始化
+    if (debouncedSize.width === 0 || debouncedSize.height === 0) {
       return;
     }
 
@@ -57,7 +74,7 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
         infographicRef.current = null;
       }
     };
-  }, [mounted, dsl]);
+  }, [mounted, dsl, debouncedSize.width, debouncedSize.height]);
 
   const loadAndRender = async () => {
     setLoading(true);
@@ -99,10 +116,12 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
       // 清空容器
       containerRef.current.innerHTML = '';
       
+      // 按官方文档，使用 '100%' 让库自动适应容器尺寸
+      // 容器的实际尺寸由外层 div 的 numericWidth/numericHeight 控制
       infographicRef.current = new Infographic({
         container: containerRef.current,
-        width: numericWidth,
-        height: numericHeight,
+        width: '100%',
+        height: '100%',
         editable,
       });
       
@@ -236,9 +255,6 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
       position: 'relative', 
       width: numericWidth, 
       height: numericHeight,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
       background: '#fff'
     }}>
       <div 
@@ -248,9 +264,7 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
           height: numericHeight, 
           overflow: 'hidden',
           background: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          // 不使用 flex 布局，让 infographic 库自己控制内部布局
         }} 
       />
       {loading && (

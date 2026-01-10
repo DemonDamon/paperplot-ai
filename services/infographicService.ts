@@ -10,6 +10,7 @@ CRITICAL RULES:
 2. First line MUST be exactly 'infographic <template-name>' (no quotes around template name).
 3. Use exactly TWO spaces for indentation (not tabs).
 4. If user provides mermaid/flowchart code, extract the key concepts and convert to this DSL format.
+5. 【最高优先级】如果用户消息以"【重要】用户明确选择使用模板:"开头，你必须使用该指定模板，忽略下面的"TEMPLATE SELECTION RULES"。用户选择的模板优先级最高！
 
 TEMPLATE SELECTION GUIDE:
 - hierarchy-structure: Layered architecture diagrams (分层架构图), system layers with components
@@ -586,10 +587,14 @@ async function* generateWithOpenAICompatible(
 
 /**
  * Main function to generate infographic DSL
+ * @param prompt - User's prompt describing the infographic
+ * @param imageBase64 - Optional reference image
+ * @param selectedTemplate - Optional template override. If provided and not 'auto', AI will be instructed to use this specific template.
  */
 export async function* generateInfographicDsl(
   prompt: string,
-  imageBase64?: string | null
+  imageBase64?: string | null,
+  selectedTemplate?: string
 ): AsyncGenerator<string> {
   const config = getAIConfig();
   
@@ -597,16 +602,27 @@ export async function* generateInfographicDsl(
     throw new Error('API key not configured. Please set up your AI provider in settings.');
   }
 
+  // Build the final prompt with template instruction if specified
+  let finalPrompt = prompt;
+  if (selectedTemplate && selectedTemplate !== 'auto') {
+    // Prepend a strong instruction to use the specified template
+    finalPrompt = `【重要】用户明确选择使用模板: ${selectedTemplate}
+请务必使用此模板生成 DSL，忽略其他模板选择规则。
+
+用户需求：${prompt}`;
+    console.log('[InfographicService] User selected template:', selectedTemplate);
+  }
+
   console.log('[InfographicService] Generating with provider:', config.provider);
   console.log('[InfographicService] Model:', config.model);
-  console.log('[InfographicService] Prompt:', prompt.substring(0, 100) + '...');
+  console.log('[InfographicService] Prompt:', finalPrompt.substring(0, 150) + '...');
   
   // Route to appropriate generator based on provider
   if (config.provider === 'gemini') {
-    yield* generateWithGemini(config, prompt, imageBase64);
+    yield* generateWithGemini(config, finalPrompt, imageBase64);
   } else {
     // All other providers use OpenAI-compatible API
-    yield* generateWithOpenAICompatible(config, prompt, imageBase64);
+    yield* generateWithOpenAICompatible(config, finalPrompt, imageBase64);
   }
 }
 
