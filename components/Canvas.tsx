@@ -320,59 +320,88 @@ const getRoundedStepPathWithOffset = (
      }
   }
   
-  // Ensure minimum stub length to avoid "hugging" the edge
-  const MIN_TARGET_STUB = 30;
+  // ===== 关键改进：确保连线有足够的 stub（桩）长度，避免贴边 =====
+  // 这是让连线看起来"丝滑"的核心参数
+  const MIN_TARGET_STUB = 60;    // 连线到达目标节点前的最小距离
+  const MIN_STUB_OFFSET = 50;    // 连线从源节点出发后的最小偏移量
   
-  // For VHV (Horizontal start), we need min horizontal stub
-  if (isVerticalLayout) { // VHV
-     // If detected start direction is horizontal (or auto), ensure we move out horizontally first
-     if (Math.abs(finalMidXOffset) < 20 && (!startIsVert)) {
-        const isRight = startDir?.includes('right');
-        const isLeft = startDir?.includes('left');
-        // Determine direction based on target or port
-        let dir = 1;
-        if (isRight) dir = 1;
-        else if (isLeft) dir = -1;
-        else dir = (endX > startX) ? 1 : -1;
-        
-        finalMidXOffset = 20 * dir;
+  // VHV 模式 (横-竖-横-竖): 第一段是水平的
+  if (isVerticalLayout) {
+     // 强制水平方向的最小偏移，确保连线从节点出来后有足够的水平段
+     // 不管端口方向如何，都要确保第一段有足够长度
+     const isRight = startDir?.includes('right');
+     const isLeft = startDir?.includes('left');
+     const isTop = startDir?.includes('top');
+     const isBottom = startDir?.includes('bottom');
+     
+     // 如果从左右端口出发，需要水平 stub
+     if (isRight || isLeft || (!isTop && !isBottom)) {
+        if (Math.abs(finalMidXOffset) < MIN_STUB_OFFSET) {
+           let dir = 1;
+           if (isRight) dir = 1;
+           else if (isLeft) dir = -1;
+           else dir = (endX > startX) ? 1 : -1;
+           finalMidXOffset = MIN_STUB_OFFSET * dir;
+        }
+     }
+     // 如果从上下端口出发但使用 VHV 模式，需要确保中间段足够长
+     else if (isTop || isBottom) {
+        // 确保 midY 不会太靠近起点或终点
+        const tentativeMidY = (startY + endY) / 2 + finalMidYOffset;
+        if (Math.abs(tentativeMidY - startY) < MIN_STUB_OFFSET) {
+           finalMidYOffset = (dy > 0 ? MIN_STUB_OFFSET : -MIN_STUB_OFFSET) - dy / 2;
+        }
+        if (Math.abs(tentativeMidY - endY) < MIN_STUB_OFFSET) {
+           finalMidYOffset = dy / 2 + (dy > 0 ? -MIN_STUB_OFFSET : MIN_STUB_OFFSET);
+        }
      }
      
-     // Fix for Target Hugging in H-V-H mode (Horizontal End)
-     // Check if we end effectively at the target Y (H-V-H structure)
+     // Fix for Target Hugging
      const tempMidY = (startY + endY) / 2 + finalMidYOffset;
-     if (Math.abs(tempMidY - endY) < 1 || (startDir && endDir && !startIsVert && !endIsVert)) { 
+     if (Math.abs(tempMidY - endY) < 1 || (!startIsVert && !endIsVert)) { 
         const v1_X = startX + finalMidXOffset;
         if (Math.abs(endX - v1_X) < MIN_TARGET_STUB) {
-           finalMidXOffset = dx / 2;
+           // 确保连线到目标节点有足够距离
+           finalMidXOffset = Math.sign(dx || 1) * Math.max(Math.abs(dx) / 2, MIN_STUB_OFFSET);
         }
      }
   } 
-  // For HVH (Vertical start), we need min vertical stub
-  else { // HVH
-     if (Math.abs(finalMidYOffset) < 20 && (!startIsHoriz)) {
-        const isBottom = startDir?.includes('bottom');
-        const isTop = startDir?.includes('top');
-        
-        let dir = 1;
-        if (isBottom) dir = 1;
-        else if (isTop) dir = -1;
-        else dir = (endY > startY) ? 1 : -1;
-        
-        finalMidYOffset = 20 * dir;
+  // HVH 模式 (竖-横-竖-横): 第一段是垂直的
+  else {
+     // 强制垂直方向的最小偏移，确保连线从节点出来后有足够的垂直段
+     const isTop = startDir?.includes('top');
+     const isBottom = startDir?.includes('bottom');
+     const isRight = startDir?.includes('right');
+     const isLeft = startDir?.includes('left');
+     
+     // 如果从上下端口出发，需要垂直 stub
+     if (isTop || isBottom || (!isRight && !isLeft)) {
+        if (Math.abs(finalMidYOffset) < MIN_STUB_OFFSET) {
+           let dir = 1;
+           if (isBottom) dir = 1;
+           else if (isTop) dir = -1;
+           else dir = (endY > startY) ? 1 : -1;
+           finalMidYOffset = MIN_STUB_OFFSET * dir;
+        }
+     }
+     // 如果从左右端口出发但使用 HVH 模式，需要确保中间段足够长
+     else if (isRight || isLeft) {
+        const tentativeMidX = (startX + endX) / 2 + finalMidXOffset;
+        if (Math.abs(tentativeMidX - startX) < MIN_STUB_OFFSET) {
+           finalMidXOffset = (dx > 0 ? MIN_STUB_OFFSET : -MIN_STUB_OFFSET) - dx / 2;
+        }
+        if (Math.abs(tentativeMidX - endX) < MIN_STUB_OFFSET) {
+           finalMidXOffset = dx / 2 + (dx > 0 ? -MIN_STUB_OFFSET : MIN_STUB_OFFSET);
+        }
      }
      
-     // Fix for Target Hugging in HVH (Vertical Segment hugging Target Vertical Edge)
-     // Path involves vertical segment at x = midX
+     // Fix for Target Hugging
      const midX = (startX + endX) / 2 + finalMidXOffset;
      if (Math.abs(midX - endX) < MIN_TARGET_STUB) {
-        // Too close to target vertical edge.
         if (Math.abs(dx) > MIN_TARGET_STUB * 2.5) {
-             finalMidXOffset = 0; // Force exact middle
+             finalMidXOffset = 0;
         } else if (Math.abs(finalMidXOffset) < 1) {
-             // Force detour if space is tight but overlapping
-             // E.g. Top -> Left, but Top is directly above Left.
-             finalMidXOffset = (dx >= 0) ? -50 : 50; 
+             finalMidXOffset = (dx >= 0) ? -MIN_STUB_OFFSET : MIN_STUB_OFFSET; 
         }
      }
   }
@@ -486,6 +515,7 @@ const getRoundedStepPath = (startX: number, startY: number, endX: number, endY: 
 };
 
 // Helper function to select best port pair based on layout
+// 改进版：优先考虑连线方向的一致性，避免连线贴边
 const selectBestPorts = (from: DiagramElement, to: DiagramElement): { fromPort: Port; toPort: Port } => {
   const fromPorts = getPorts(from);
   const toPorts = getPorts(to);
@@ -503,74 +533,100 @@ const selectBestPorts = (from: DiagramElement, to: DiagramElement): { fromPort: 
   const absDx = Math.abs(dx);
   const absDy = Math.abs(dy);
   
-  // Default fallback ports (usually middle-bottom to middle-top)
-  let fromPort: Port = fromPorts[2]; // bottom
-  let toPort: Port = toPorts[0];     // top
+  // 核心改进：根据相对位置直接选择最合适的端口对
+  // 而不是只找最短距离，要考虑路径的流畅性
   
-  // Smart heuristic for primary direction
-  if (absDy > absDx) {
-    // Vertical layout
-    if (dy > 0) { // from above to
+  // 定义边界检测阈值（节点尺寸的一半）
+  const fromHalfW = (from.width || 200) / 2;
+  const fromHalfH = (from.height || 100) / 2;
+  const toHalfW = (to.width || 200) / 2;
+  const toHalfH = (to.height || 100) / 2;
+  
+  // 检测目标节点相对于源节点的位置
+  const targetIsRight = dx > fromHalfW;
+  const targetIsLeft = dx < -fromHalfW;
+  const targetIsBelow = dy > fromHalfH;
+  const targetIsAbove = dy < -fromHalfH;
+  
+  let fromPort: Port;
+  let toPort: Port;
+  
+  // 优先使用方向一致的端口对，这样连线更直观
+  if (targetIsBelow && !targetIsLeft && !targetIsRight) {
+    // 目标在正下方：底部 -> 顶部
+    fromPort = fromPorts[2]; // bottom
+    toPort = toPorts[0];     // top
+  } else if (targetIsAbove && !targetIsLeft && !targetIsRight) {
+    // 目标在正上方：顶部 -> 底部
+    fromPort = fromPorts[0]; // top
+    toPort = toPorts[2];     // bottom
+  } else if (targetIsRight && !targetIsAbove && !targetIsBelow) {
+    // 目标在正右方：右侧 -> 左侧
+    fromPort = fromPorts[1]; // right
+    toPort = toPorts[3];     // left
+  } else if (targetIsLeft && !targetIsAbove && !targetIsBelow) {
+    // 目标在正左方：左侧 -> 右侧
+    fromPort = fromPorts[3]; // left
+    toPort = toPorts[1];     // right
+  } else if (targetIsBelow && targetIsRight) {
+    // 目标在右下方：优先从底部出发到左侧，或从右侧出发到顶部
+    // 选择更接近直线的方案
+    if (absDy > absDx) {
       fromPort = fromPorts[2]; // bottom
+      toPort = toPorts[3];     // left (而非 top，避免 S 形)
+    } else {
+      fromPort = fromPorts[1]; // right
       toPort = toPorts[0];     // top
-    } else { // from below to
+    }
+  } else if (targetIsBelow && targetIsLeft) {
+    // 目标在左下方
+    if (absDy > absDx) {
+      fromPort = fromPorts[2]; // bottom
+      toPort = toPorts[1];     // right
+    } else {
+      fromPort = fromPorts[3]; // left
+      toPort = toPorts[0];     // top
+    }
+  } else if (targetIsAbove && targetIsRight) {
+    // 目标在右上方
+    if (absDy > absDx) {
       fromPort = fromPorts[0]; // top
+      toPort = toPorts[3];     // left
+    } else {
+      fromPort = fromPorts[1]; // right
+      toPort = toPorts[2];     // bottom
+    }
+  } else if (targetIsAbove && targetIsLeft) {
+    // 目标在左上方
+    if (absDy > absDx) {
+      fromPort = fromPorts[0]; // top
+      toPort = toPorts[1];     // right
+    } else {
+      fromPort = fromPorts[3]; // left
       toPort = toPorts[2];     // bottom
     }
   } else {
-    // Horizontal layout
-    if (dx > 0) { // from left to right
-      fromPort = fromPorts[1]; // right
-      toPort = toPorts[3];     // left
-    } else { // from right to left
-      fromPort = fromPorts[3]; // left
-      toPort = toPorts[1];     // right
-    }
-  }
-  
-  // Optimization: Find the closest pair, but prioritize edge centers
-  // Indices 0-3: Main Centers (Priority 1)
-  // Indices 4-11: Side Subdivisions (Priority 2)
-  // Indices 12-15: Corners (Priority 3 - Avoid if possible)
-  
-  let minDist = Infinity;
-  let bestFromPort = fromPort;
-  let bestToPort = toPort;
-  
-  // Heuristic baseline distance
-  const heuristicDist = Math.sqrt(Math.pow(fromPort.x - toPort.x, 2) + Math.pow(fromPort.y - toPort.y, 2));
-  minDist = heuristicDist;
-
-  // Iterate all combinations to find a significantly better path
-  // We apply penalties to lower priority ports to discourage their use unless necessary
-  for (let i = 0; i < fromPorts.length; i++) {
-    // Skip corners (12-15) unless absolutely necessary (e.g. very close nodes)
-    if (i >= 12) continue; 
-    
-    for (let j = 0; j < toPorts.length; j++) {
-      if (j >= 12) continue;
-
-      const fp = fromPorts[i];
-      const tp = toPorts[j];
-      
-      let dist = Math.sqrt(Math.pow(fp.x - tp.x, 2) + Math.pow(fp.y - tp.y, 2));
-      
-      // Apply penalties
-      // Priority 1 (0-3): No penalty
-      // Priority 2 (4-11): Small penalty (+20px effective distance)
-      if (i >= 4) dist += 20;
-      if (j >= 4) dist += 20;
-      
-      // If this port pair is significantly better (shorter) than current best, pick it
-      if (dist < minDist) {
-        minDist = dist;
-        bestFromPort = fp;
-        bestToPort = tp;
+    // 默认：基于主要方向
+    if (absDy >= absDx) {
+      if (dy > 0) {
+        fromPort = fromPorts[2]; // bottom
+        toPort = toPorts[0];     // top
+      } else {
+        fromPort = fromPorts[0]; // top
+        toPort = toPorts[2];     // bottom
+      }
+    } else {
+      if (dx > 0) {
+        fromPort = fromPorts[1]; // right
+        toPort = toPorts[3];     // left
+      } else {
+        fromPort = fromPorts[3]; // left
+        toPort = toPorts[1];     // right
       }
     }
   }
   
-  return { fromPort: bestFromPort, toPort: bestToPort };
+  return { fromPort, toPort };
 };
 
 // Helper to get point on line based on t (0-1)
@@ -756,7 +812,8 @@ const getSmartPath = (
   }
 
   if (lineType === LineType.STEP) {
-    return getRoundedStepPath(start.x, start.y, end.x, end.y);
+    // 传入端口方向，让路径计算函数能正确计算 stub 长度
+    return getRoundedStepPath(start.x, start.y, end.x, end.y, start.id, end.id);
   }
 
   // CURVE (Bezier)
@@ -1332,7 +1389,7 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
     if (resizingHandle && resizeStartSize && selectedElementIds.length > 0) {
       const selectedElementId = selectedElementIds[0];
       const element = elements.find(el => el.id === selectedElementId);
-      if (element && (element.type === ToolType.RECTANGLE || element.type === ToolType.CIRCLE)) {
+      if (element && (element.type === ToolType.RECTANGLE || element.type === ToolType.CIRCLE || element.type === ToolType.INFOGRAPHIC)) {
         const dx = pos.x - dragStart.x;
         const dy = pos.y - dragStart.y;
         
@@ -1364,18 +1421,22 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
             break;
         }
         
-        // Ensure minimum size
-        if (newWidth < 20) {
+        // Ensure minimum size (INFOGRAPHIC needs larger minimum)
+        const isInfographic = element.type === ToolType.INFOGRAPHIC;
+        const minWidth = isInfographic ? 200 : 20;
+        const minHeight = isInfographic ? 150 : 20;
+        
+        if (newWidth < minWidth) {
           if (resizingHandle === 'nw' || resizingHandle === 'sw') {
-            newX = resizeStartSize.x + resizeStartSize.width - 20;
+            newX = resizeStartSize.x + resizeStartSize.width - minWidth;
           }
-          newWidth = 20;
+          newWidth = minWidth;
         }
-        if (newHeight < 20) {
+        if (newHeight < minHeight) {
           if (resizingHandle === 'nw' || resizingHandle === 'ne') {
-            newY = resizeStartSize.y + resizeStartSize.height - 20;
+            newY = resizeStartSize.y + resizeStartSize.height - minHeight;
           }
-          newHeight = 20;
+          newHeight = minHeight;
         }
         
         setElements(prev => prev.map(el => 
@@ -2782,7 +2843,7 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
                      style={{pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(24, 144, 255, 0.2))'}}
                    />
                    {/* Resize Handles */}
-                   {(el.type === ToolType.RECTANGLE || el.type === ToolType.CIRCLE) && (
+                   {(el.type === ToolType.RECTANGLE || el.type === ToolType.CIRCLE || el.type === ToolType.INFOGRAPHIC) && (
                      <>
                        {/* Top-left */}
                        <circle
@@ -2863,10 +2924,20 @@ export const Canvas = React.forwardRef<CanvasRef, CanvasProps>(({
                      </>
                    )}
                    
-                   {/* Connection Points (all ports) */}
+                   {/* Connection Points (all ports, excluding corners for elements with resize handles) */}
                    {el.type !== ToolType.ARROW && (
                      <>
-                       {getPorts(el).map((port, idx) => (
+                       {getPorts(el)
+                         .filter((port) => {
+                           // For elements with resize handles, exclude corner ports to avoid conflict
+                           const hasResizeHandles = el.type === ToolType.RECTANGLE || el.type === ToolType.CIRCLE || el.type === ToolType.INFOGRAPHIC;
+                           if (hasResizeHandles) {
+                             const cornerPorts = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+                             return !cornerPorts.includes(port.id);
+                           }
+                           return true;
+                         })
+                         .map((port, idx) => (
                          <circle
                            key={idx}
                            cx={port.x}
