@@ -45,6 +45,7 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
 1. hierarchy-structure (Layered Architecture - IMPORTANT):
    Use this for system architecture with horizontal layers, each layer containing multiple components.
    Each top-level item is a LAYER, and children are COMPONENTS within that layer.
+   IMPORTANT: Each layer will get a DIFFERENT COLOR automatically. Keep layers at top level.
    
    infographic hierarchy-structure
    data
@@ -70,33 +71,44 @@ TEMPLATE-SPECIFIC DSL STRUCTURES (Follow strictly):
          children
            - label <Service 1>
            - label <Service 2>
+   theme
+     light
+     palette antv
 
-   EXAMPLE - System Layered Architecture:
+   EXAMPLE - Agentic RAG System Architecture:
    infographic hierarchy-structure
    data
-     title System Layered Architecture
-     desc Shows the interaction flow between client and system layer components
+     title Agentic RAG System Architecture
+     desc Multi-layered architecture integrating agents, RAG pipeline, and tools
      items
-       - label Client Layer
+       - label User Interface Layer
          children
-           - label Web Client
-           - label Mobile App
-           - label Desktop Client
-       - label Request Dispatch Layer
-         children
-           - label Load Balancer
+           - label Web Application
+           - label Chat Interface
            - label API Gateway
-           - label Router
-       - label Service Instance Layer
+       - label Agent Orchestration Layer
          children
-           - label Instance 1 (Session-A)
-           - label Instance 2 (Session-B)
-           - label Instance 3 (Session-C)
-       - label Persistence Layer
+           - label Planning Agent
+           - label Routing Agent
+           - label Reflection Agent
+       - label RAG Pipeline Layer
          children
-           - label Database
-           - label Cache
-           - label File Storage
+           - label Query Understanding
+           - label Retrieval Engine
+           - label Reranking Module
+       - label Knowledge Management Layer
+         children
+           - label Vector Database
+           - label Document Store
+           - label Knowledge Graph
+       - label Infrastructure Layer
+         children
+           - label Embedding Service
+           - label Caching Layer
+           - label Monitoring
+   theme
+     light
+     palette antv
 
 2. compare-binary-horizontal-underline-text-vs (Two items ONLY):
    infographic compare-binary-horizontal-underline-text-vs
@@ -226,6 +238,8 @@ CRITICAL INDENTATION RULES (strictly follow):
 - 'desc', 'icon', 'children' under list item = 6 spaces (THREE levels)
 - Nested '- label' under children = 8 spaces (FOUR levels)
 - Further nested children = 10 spaces, and so on
+- 'theme' = 0 spaces
+- 'light', 'palette' under theme = 2 spaces
 
 CORRECT EXAMPLES:
 
@@ -249,6 +263,9 @@ data
         - label MySQL
         - label Redis
         - label MongoDB
+theme
+  light
+  palette antv
 
 Example 2 - Horizontal flow:
 infographic list-row-simple-horizontal-arrow
@@ -282,6 +299,7 @@ data
 
 /**
  * Clean markdown code blocks from AI response and fix indentation
+ * Completely rewritten to properly handle hierarchy-structure nested children
  */
 function cleanDslOutput(text: string): string {
   let cleanedText = text;
@@ -296,20 +314,6 @@ function cleanDslOutput(text: string): string {
     }
   }
   
-  // Fix indentation: @antv/infographic requires specific indentation
-  // Based on official docs:
-  // data (0 spaces)
-  //   items (2 spaces)
-  //     - label (4 spaces)
-  //       desc (6 spaces)
-  //       children (6 spaces)
-  //         - label (8 spaces)
-  
-  const lines = cleanedText.split('\n');
-  let inItems = false;
-  let itemDepth = 0;
-  let childrenDepth = 0;
-  
   // Detect template type first
   const templateMatch = cleanedText.match(/^infographic\s+(\S+)/m);
   const templateName = templateMatch?.[1] || '';
@@ -317,85 +321,141 @@ function cleanDslOutput(text: string): string {
   const isHierarchyStructure = templateName === 'hierarchy-structure';
   const isWordcloudTemplate = templateName === 'chart-wordcloud';
   
-  const fixedLines = lines.map((line, index) => {
+  const lines = cleanedText.split('\n');
+  const fixedLines: string[] = [];
+  
+  // Track state for proper indentation
+  let inData = false;
+  let inItems = false;
+  let inTheme = false;
+  let currentDepth = 0; // Track nesting depth based on original indentation
+  
+  // Stack to track the indentation levels of parent items
+  const indentStack: number[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
     // Skip empty lines
-    if (!line.trim()) return '';
+    if (!line.trim()) {
+      continue;
+    }
     
     const trimmed = line.trim();
-    const leadingSpaces = line.match(/^( *)/)?.[1].length || 0;
+    const originalIndent = line.match(/^( *)/)?.[1].length || 0;
     
-    // Detect structure
+    // Handle top-level keywords
+    if (trimmed.startsWith('infographic ')) {
+      fixedLines.push(trimmed);
+      inData = false;
+      inItems = false;
+      inTheme = false;
+      indentStack.length = 0;
+      continue;
+    }
+    
     if (trimmed === 'data') {
+      fixedLines.push('data');
+      inData = true;
       inItems = false;
-      childrenDepth = 0;
-      return 'data';
+      inTheme = false;
+      indentStack.length = 0;
+      continue;
     }
+    
     if (trimmed === 'theme') {
+      fixedLines.push('theme');
+      inData = false;
       inItems = false;
-      childrenDepth = 0;
-      return 'theme';
+      inTheme = true;
+      indentStack.length = 0;
+      continue;
     }
-    if (trimmed === 'items') {
-      inItems = true;
-      itemDepth = 0;
-      childrenDepth = 0;
-      return '  items';
-    }
-    if (trimmed === 'palette') {
-      return '  palette';
-    }
-    if (trimmed.startsWith('title ') || trimmed.startsWith('desc ')) {
-      // title/desc under data should be 2-space indented
-      if (!inItems) {
-        return '  ' + trimmed;
+    
+    // Handle theme section
+    if (inTheme) {
+      if (trimmed === 'light' || trimmed === 'dark') {
+        fixedLines.push('  ' + trimmed);
+        continue;
       }
+      if (trimmed.startsWith('palette')) {
+        fixedLines.push('  ' + trimmed);
+        continue;
+      }
+      if (trimmed.startsWith('- ')) {
+        fixedLines.push('    ' + trimmed);
+        continue;
+      }
+      continue;
     }
     
-    // Handle children keyword
-    if (trimmed === 'children') {
-      childrenDepth++;
-      const indent = '      ' + '  '.repeat(Math.max(0, childrenDepth - 1));
-      return indent + 'children';
-    }
-    
-    if (trimmed.startsWith('- ') || trimmed.startsWith('- label')) {
+    // Handle data section
+    if (inData) {
+      if (trimmed.startsWith('title ') || trimmed.startsWith('desc ')) {
+        if (!inItems) {
+          fixedLines.push('  ' + trimmed);
+          continue;
+        }
+      }
+      
+      if (trimmed === 'items') {
+        fixedLines.push('  items');
+        inItems = true;
+        indentStack.length = 0;
+        continue;
+      }
+      
       if (inItems) {
-        // Calculate indent based on children depth
-        // Base: 4 spaces for first level items
-        // Add 4 spaces for each children level
-        const baseIndent = 4 + (childrenDepth * 4);
-        const indent = ' '.repeat(baseIndent);
-        return indent + trimmed;
+        // Pop stack until we find a parent with less indentation
+        while (indentStack.length > 0 && originalIndent <= indentStack[indentStack.length - 1]) {
+          indentStack.pop();
+        }
+        
+        const depth = indentStack.length;
+        
+        if (trimmed === 'children') {
+          // children keyword: 6 spaces + 4 spaces per depth level
+          const indent = '      ' + '    '.repeat(depth);
+          fixedLines.push(indent + 'children');
+          // Push current indent to stack to track this level
+          indentStack.push(originalIndent);
+          continue;
+        }
+        
+        if (trimmed.startsWith('- label') || trimmed.startsWith('- ')) {
+          // List items: 4 spaces + 4 spaces per depth level
+          const indent = '    ' + '    '.repeat(depth);
+          fixedLines.push(indent + trimmed);
+          // Push current indent to stack
+          indentStack.push(originalIndent);
+          continue;
+        }
+        
+        if (trimmed.startsWith('desc ') || trimmed.startsWith('icon ') || 
+            trimmed.startsWith('value ') || trimmed.startsWith('time ')) {
+          // Properties: 6 spaces + 4 spaces per depth level (same level as parent item's children)
+          const indent = '      ' + '    '.repeat(Math.max(0, depth - 1));
+          fixedLines.push(indent + trimmed);
+          continue;
+        }
       }
-      // For palette items in theme
-      return '    ' + trimmed;
-    }
-    
-    if (inItems && (trimmed.startsWith('desc ') || trimmed.startsWith('icon ') || 
-        trimmed.startsWith('value ') || trimmed.startsWith('time '))) {
-      // Properties under list items
-      // Base: 6 spaces for first level item properties
-      // Add 4 spaces for each children level
-      const baseIndent = 6 + (childrenDepth * 4);
-      const indent = ' '.repeat(baseIndent);
-      return indent + trimmed;
     }
     
     // Remove 'icon' property for compare templates (not supported)
     if (isCompareTemplate && trimmed.startsWith('icon ')) {
-      return null; // Skip this line
+      continue;
     }
     
-    // Fallback: keep original if we don't recognize the pattern
-    return line;
-  });
+    // Fallback: keep original line
+    fixedLines.push(line);
+  }
   
-  let result = fixedLines.filter(line => line !== null && line !== '').join('\n').trim();
+  let result = fixedLines.join('\n').trim();
   
-  // Auto-add theme with palette for hierarchy-structure template if not present
+  // Auto-add theme for hierarchy-structure template if not present
+  // Use the official format: theme > light > palette antv
   if (isHierarchyStructure && !result.includes('theme')) {
-    // Add a colorful palette for layered architecture diagrams
-    const themeDsl = `\ntheme\n  palette\n    - #10b981\n    - #3b82f6\n    - #8b5cf6\n    - #f59e0b\n    - #ef4444\n    - #ec4899`;
+    const themeDsl = `\ntheme\n  light\n  palette antv`;
     result += themeDsl;
   }
   
@@ -449,79 +509,52 @@ async function* generateWithOpenAICompatible(
   prompt: string,
   imageBase64?: string | null
 ): AsyncGenerator<string> {
-  const preset = PROVIDER_PRESETS[config.provider];
-  let baseUrl = config.baseUrl || preset?.defaultBaseUrl || 'https://api.openai.com/v1';
-  const model = config.model || preset?.defaultModel || 'gpt-4o';
-
-  // 如果是自定义 Base URL（非官方），且是开发环境，使用 Vite 代理避免 CORS
-  const isCustomUrl = baseUrl.includes('47.251.106.113') || baseUrl.includes('localhost') || baseUrl.startsWith('http://');
-  const isDev = import.meta.env.DEV;
+  const baseUrl = buildChatCompletionsUrl(config);
   
-  if (isCustomUrl && isDev) {
-    baseUrl = '/api/openai';
-    console.log(`[Infographic] 使用代理路径: ${baseUrl}`);
-  }
-
-  // 智能构造 /chat/completions URL
-  const fetchUrl = buildChatCompletionsUrl(baseUrl);
-  console.log(`[Infographic] Final fetch URL: ${fetchUrl}`);
-
-  // Build messages array
   const messages: any[] = [
-    {
-      role: 'system',
-      content: INFOGRAPHIC_SYSTEM_PROMPT
-    }
+    { role: "system", content: INFOGRAPHIC_SYSTEM_PROMPT },
   ];
 
-  // User message with optional image
+  // Build user message with optional image
   if (imageBase64) {
-    const match = imageBase64.match(/^data:(.*?);base64,(.*)$/);
-    if (match) {
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          { 
-            type: 'image_url', 
-            image_url: { url: imageBase64 }
-          }
-        ]
-      });
-    } else {
-      messages.push({ role: 'user', content: prompt });
-    }
+    messages.push({
+      role: "user",
+      content: [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: imageBase64 } }
+      ]
+    });
   } else {
-    messages.push({ role: 'user', content: prompt });
+    messages.push({ role: "user", content: prompt });
   }
 
-  // Make streaming request
-  const response = await fetch(fetchUrl, {
+  const response = await fetch(baseUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`
+      'Authorization': `Bearer ${config.apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: config.model,
       messages,
       stream: true,
-    })
+      max_tokens: 4096,
+    }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`API Error (${response.status}): ${errorText.substring(0, 200)}`);
+    throw new Error(`API request failed: ${response.status} - ${errorText}`);
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('Response body is not readable');
+    throw new Error('No response body');
   }
 
   const decoder = new TextDecoder();
-  let fullText = '';
-  let buffer = '';
+  let fullText = "";
+  let buffer = "";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -529,81 +562,124 @@ async function* generateWithOpenAICompatible(
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+    buffer = lines.pop() || "";
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (!trimmed.startsWith('data: ')) continue;
-
-      try {
-        const json = JSON.parse(trimmed.slice(6));
-        const delta = json.choices?.[0]?.delta?.content;
-        if (delta) {
-          fullText += delta;
-          yield cleanDslOutput(fullText);
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            fullText += content;
+            yield cleanDslOutput(fullText);
+          }
+        } catch (e) {
+          // Skip invalid JSON
         }
-      } catch (e) {
-        // Ignore parse errors for incomplete chunks
       }
-    }
-  }
-
-  // Process any remaining buffer
-  if (buffer.trim() && buffer.trim() !== 'data: [DONE]' && buffer.trim().startsWith('data: ')) {
-    try {
-      const json = JSON.parse(buffer.trim().slice(6));
-      const delta = json.choices?.[0]?.delta?.content;
-      if (delta) {
-        fullText += delta;
-        yield cleanDslOutput(fullText);
-      }
-    } catch (e) {
-      // Ignore
     }
   }
 }
 
 /**
- * Main entry point: Generate infographic DSL with streaming
- * Automatically selects the appropriate provider based on config
+ * Main function to generate infographic DSL
  */
-export async function* generateInfographicStream(
-  prompt: string, 
-  imageBase64?: string | null,
-  templateHint: string = 'auto'
+export async function* generateInfographicDsl(
+  prompt: string,
+  imageBase64?: string | null
 ): AsyncGenerator<string> {
   const config = getAIConfig();
   
-  if (!config) {
-    throw new Error("No AI service configured. Please configure your API key in settings.");
-  }
-
   if (!config.apiKey) {
-    throw new Error("API Key not found. Please configure your API key in settings.");
+    throw new Error('API key not configured. Please set up your AI provider in settings.');
   }
 
-  // 构建带模板提示的完整 prompt
-  let fullPrompt = prompt;
-  if (templateHint !== 'auto') {
-    fullPrompt = `使用模板: ${templateHint}\n\n${prompt}`;
+  console.log('[InfographicService] Generating with provider:', config.provider);
+  console.log('[InfographicService] Model:', config.model);
+  console.log('[InfographicService] Prompt:', prompt.substring(0, 100) + '...');
+  
+  // Route to appropriate generator based on provider
+  if (config.provider === 'gemini') {
+    yield* generateWithGemini(config, prompt, imageBase64);
+  } else {
+    // All other providers use OpenAI-compatible API
+    yield* generateWithOpenAICompatible(config, prompt, imageBase64);
   }
+}
 
-  // Route to appropriate provider
-  switch (config.provider) {
-    case 'gemini':
-      yield* generateWithGemini(config, fullPrompt, imageBase64);
-      break;
-    
-    case 'openai':
-    case 'bailian':
-    case 'qwen':
-    case 'glm':
-    case 'deepseek':
-    case 'minimax':
-    default:
-      // All these use OpenAI-compatible API
-      yield* generateWithOpenAICompatible(config, fullPrompt, imageBase64);
-      break;
+/**
+ * Parse shortcut commands and convert to full prompts
+ */
+export function parseShortcutCommand(input: string): string {
+  const trimmed = input.trim();
+  
+  // /flow command - process flow
+  if (trimmed.startsWith('/flow ')) {
+    const content = trimmed.slice(6);
+    return `Create a process flow diagram for: ${content}. Use sequence-color-snake-steps-horizontal-icon-line template.`;
   }
+  
+  // /compare command - comparison
+  if (trimmed.startsWith('/compare ')) {
+    const content = trimmed.slice(9);
+    return `Create a comparison diagram for: ${content}. Use compare-binary-horizontal-underline-text-vs template.`;
+  }
+  
+  // /swot command - SWOT analysis
+  if (trimmed.startsWith('/swot ')) {
+    const content = trimmed.slice(6);
+    return `Create a SWOT analysis for: ${content}. Use compare-swot template.`;
+  }
+  
+  // /pyramid command - pyramid
+  if (trimmed.startsWith('/pyramid ')) {
+    const content = trimmed.slice(9);
+    return `Create a pyramid diagram for: ${content}. Use sequence-pyramid-simple template.`;
+  }
+  
+  // /roadmap command - roadmap
+  if (trimmed.startsWith('/roadmap ')) {
+    const content = trimmed.slice(9);
+    return `Create a roadmap for: ${content}. Use sequence-roadmap-vertical-simple template.`;
+  }
+  
+  // /mindmap command - mind map
+  if (trimmed.startsWith('/mindmap ')) {
+    const content = trimmed.slice(9);
+    return `Create a mind map for: ${content}. Use hierarchy-mindmap template.`;
+  }
+  
+  // /tree command - tree diagram
+  if (trimmed.startsWith('/tree ')) {
+    const content = trimmed.slice(6);
+    return `Create a tree diagram for: ${content}. Use hierarchy-tree-tech-style-badge-card template.`;
+  }
+  
+  // /list command - list
+  if (trimmed.startsWith('/list ')) {
+    const content = trimmed.slice(6);
+    return `Create a list diagram for: ${content}. Use list-column-simple-vertical-arrow template.`;
+  }
+  
+  // /quadrant command - quadrant analysis
+  if (trimmed.startsWith('/quadrant ')) {
+    const content = trimmed.slice(10);
+    return `Create a quadrant analysis for: ${content}. Use quadrant-quarter-simple-card template.`;
+  }
+  
+  // /layers command - layered architecture
+  if (trimmed.startsWith('/layers ')) {
+    const content = trimmed.slice(8);
+    return `Create a layered architecture diagram for: ${content}. 
+Use hierarchy-structure template. 
+IMPORTANT: Each layer should be a top-level item with its components as children.
+Each layer will get a different color automatically.
+Add theme section at the end with 'light' and 'palette antv'.`;
+  }
+  
+  // No shortcut matched, return original input
+  return input;
 }
