@@ -232,7 +232,15 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
 
   // 始终渲染容器 div，但在 loading 时显示覆盖层
   return (
-    <div style={{ position: 'relative', width: numericWidth, height: numericHeight }}>
+    <div style={{ 
+      position: 'relative', 
+      width: numericWidth, 
+      height: numericHeight,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#fff'
+    }}>
       <div 
         ref={containerRef} 
         style={{ 
@@ -240,9 +248,9 @@ export const InfographicRenderer: React.FC<InfographicRendererProps> = ({
           height: numericHeight, 
           overflow: 'hidden',
           background: '#fff',
-          position: 'absolute',
-          top: 0,
-          left: 0
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }} 
       />
       {loading && (

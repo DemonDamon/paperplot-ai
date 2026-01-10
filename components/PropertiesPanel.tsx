@@ -1,6 +1,6 @@
 import React from 'react';
 import { DiagramElement, ToolType, LineType, LineStyle } from '../types';
-import { ArrowRight, Activity, CornerDownRight, Minus, MoreHorizontal, X } from 'lucide-react';
+import { ArrowRight, Activity, CornerDownRight, Minus, MoreHorizontal, X, Code2 } from 'lucide-react';
 
 interface PropertiesPanelProps {
   element: DiagramElement | null;
@@ -10,9 +10,10 @@ interface PropertiesPanelProps {
   onHistorySave: () => void;
   onClose?: () => void;
   onCreateGroup?: () => void;
+  onOpenDslEditor?: (elementId: string) => void;  // Open DSL editor for infographic elements
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, elements, updateElement, deleteElement, onHistorySave, onClose, onCreateGroup }) => {
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, elements, updateElement, deleteElement, onHistorySave, onClose, onCreateGroup, onOpenDslEditor }) => {
   
   // Helper to update with history trigger
   const handleChange = (updates: Partial<DiagramElement>) => {
@@ -76,20 +77,38 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ element, eleme
       </div>
 
       <div className="space-y-4">
+        {/* Infographic DSL Editor Button */}
+        {element.type === ToolType.INFOGRAPHIC && onOpenDslEditor && (
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => onOpenDslEditor(element.id)}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium text-sm transition-colors border border-blue-200"
+            >
+              <Code2 size={16} />
+              Edit DSL Code
+            </button>
+            <p className="text-xs text-gray-500">
+              Click to open the DSL editor panel for real-time editing
+            </p>
+          </div>
+        )}
+
         {/* Text Content */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">
-            {element.type === ToolType.GROUP ? 'Group Label' : 'Label / Text'}
-          </label>
-          <textarea
-            value={element.text || ''}
-            onFocus={() => onHistorySave()} 
-            onChange={(e) => updateElement({ text: e.target.value }, false)} 
-            onBlur={() => onHistorySave()}
-            className="border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y min-h-[60px]"
-            placeholder={element.type === ToolType.GROUP ? 'Enter group name...' : 'Enter text...'}
-          />
-        </div>
+        {element.type !== ToolType.INFOGRAPHIC && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500">
+              {element.type === ToolType.GROUP ? 'Group Label' : 'Label / Text'}
+            </label>
+            <textarea
+              value={element.text || ''}
+              onFocus={() => onHistorySave()} 
+              onChange={(e) => updateElement({ text: e.target.value }, false)} 
+              onBlur={() => onHistorySave()}
+              className="border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y min-h-[60px]"
+              placeholder={element.type === ToolType.GROUP ? 'Enter group name...' : 'Enter text...'}
+            />
+          </div>
+        )}
 
         {/* Line Specific Properties */}
         {element.type === ToolType.ARROW && (

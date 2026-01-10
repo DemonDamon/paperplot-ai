@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { Canvas, CanvasRef } from './components/Canvas';
 import { GeminiInput } from './components/GeminiInput';
+import { DslEditorPanel } from './components/DslEditorPanel';
 import { DiagramElement, ToolType, GenerationHistory, LineStyle } from './types';
 import { FileImage, Trash2, CheckCircle2, AlertCircle, RotateCcw, RotateCw } from 'lucide-react';
 
@@ -68,6 +69,9 @@ const App: React.FC = () => {
   // Track if generation is in progress
   const isGeneratingRef = useRef(false);
   const canvasRef = useRef<CanvasRef>(null);
+
+  // DSL Editor state
+  const [dslEditorElementId, setDslEditorElementId] = useState<string | null>(null);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -850,7 +854,27 @@ const App: React.FC = () => {
           onHistorySave={saveToHistory}
           onClose={() => setSelectedElementIds([])}
           onCreateGroup={handleCreateGroup}
+          onOpenDslEditor={(elementId) => setDslEditorElementId(elementId)}
         />
+
+        {/* DSL Editor Panel (for Infographic elements) */}
+        {dslEditorElementId && (() => {
+          const element = elements.find(el => el.id === dslEditorElementId);
+          if (!element || element.type !== ToolType.INFOGRAPHIC) return null;
+          return (
+            <DslEditorPanel
+              dsl={element.dsl || ''}
+              elementId={dslEditorElementId}
+              onDslChange={(newDsl) => {
+                saveToHistory();
+                setElements(prev => prev.map(el => 
+                  el.id === dslEditorElementId ? { ...el, dsl: newDsl } : el
+                ));
+              }}
+              onClose={() => setDslEditorElementId(null)}
+            />
+          );
+        })()}
 
         {/* Right: Gemini AI Input (Always visible) */}
         <GeminiInput 
