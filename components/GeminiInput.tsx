@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Loader2, Image as ImageIcon, X, Upload, History, Clock, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import { generateDiagramFromPrompt } from '../services/aiService';
-import { generateInfographicStream } from '../services/infographicService';
+import { generateInfographicDsl } from '../services/infographicService';
 import { DiagramElement, GenerationHistory, ToolType, AIProviderConfig } from '../types';
 import { ModelConfigModal } from './ModelConfigModal';
 import { getAIConfig, getProviderDisplayName } from '../services/configService';
@@ -159,7 +159,7 @@ export const GeminiInput: React.FC<GeminiInputProps> = ({
         
         // 收集完整的 DSL（不要流式更新，避免组件频繁重新挂载）
         let completeDsl = '';
-        for await (const dsl of generateInfographicStream(actualPrompt, image, templateOverride)) {
+        for await (const dsl of generateInfographicDsl(actualPrompt, image)) {
           completeDsl = dsl;
           console.log('[GeminiInput] DSL generation progress:', dsl.length, 'chars');
         }
